@@ -1,7 +1,7 @@
 pub mod esr;
 pub mod iso11649;
 
-use std::fmt::{format, Write};
+use std::fmt::Write;
 
 use chrono::{Date, Utc};
 pub use iban::Iban;
@@ -117,13 +117,6 @@ const LABEL_PAYABLE_BY_DATE: Translation = Translation {
     it: "Pagabile fino al",
 };
 
-const LABEL_IN_FAVOR_OF: Translation = Translation {
-    en: "In favour of",
-    de: "Zugunsten",
-    fr: "En faveur de",
-    it: "A favore di",
-};
-
 struct Translation {
     en: &'static str,
     de: &'static str,
@@ -151,7 +144,7 @@ const SCISSORS_SVG_PATH: &str = "m 0.764814,4.283977 c 0.337358,0.143009 0.86247
 trait AddressExt {
     fn data_list(&self) -> Vec<String>;
 
-    fn as_paragraph(&self) -> Vec<String>;
+    fn as_paragraph(&self, max_width: usize) -> Vec<String>;
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -195,10 +188,10 @@ impl AddressExt for Address {
         }
     }
 
-    fn as_paragraph(&self) -> Vec<String> {
+    fn as_paragraph(&self, max_width: usize) -> Vec<String> {
         match self {
-            Address::Cobined(a) => a.as_paragraph(),
-            Address::Structured(a) => a.as_paragraph(),
+            Address::Cobined(a) => a.as_paragraph(max_width),
+            Address::Structured(a) => a.as_paragraph(max_width),
         }
     }
 }
@@ -242,10 +235,10 @@ impl AddressExt for CombinedAddress {
         ]
     }
 
-    fn as_paragraph(&self) -> Vec<String> {
+    fn as_paragraph(&self, max_width: usize) -> Vec<String> {
         [self.name.clone(), self.line1.clone(), self.line2.clone()]
             .iter()
-            .map(|line| textwrap::fill(line, MAX_CHARS_PAYMENT_LINE))
+            .map(|line| textwrap::fill(line, max_width))
             .collect()
     }
 }
@@ -308,7 +301,7 @@ impl AddressExt for StructuredAddress {
         ]
     }
 
-    fn as_paragraph(&self) -> Vec<String> {
+    fn as_paragraph(&self, max_width: usize) -> Vec<String> {
         vec![
             self.name.clone(),
             format!("{} {}", self.street, self.house_number),
@@ -320,7 +313,7 @@ impl AddressExt for StructuredAddress {
             ),
         ]
         .into_iter()
-        .map(|line| textwrap::fill(&line, MAX_CHARS_PAYMENT_LINE))
+        .map(|line| textwrap::fill(&line, max_width))
         .collect()
     }
 }
@@ -366,8 +359,6 @@ pub struct QRBill {
     top_line: bool,
     /// Print a vertical line between the receipt and the bill itself.
     payment_line: bool,
-    /// A zoom factor for all texts in the bill.
-    font_factor: f64,
 }
 
 pub struct QRBillOptions {
@@ -388,8 +379,6 @@ pub struct QRBillOptions {
     pub top_line: bool,
     /// Print a vertical line between the receipt and the bill itself.
     pub payment_line: bool,
-    /// A zoom factor for all texts in the bill.
-    pub font_factor: f64,
 }
 
 #[derive(Debug, Clone)]
@@ -502,7 +491,7 @@ impl QRBill {
         let iban_iid = options.account.electronic_str()[4..9]
             .parse()
             .expect("This is a bug. Please report it.");
-        let account_is_qriban = QR_IID_START <= iban_iid && iban_iid <= QR_IID_END;
+        let _account_is_qriban = QR_IID_START <= iban_iid && iban_iid <= QR_IID_END;
 
         // TODO validate ESR reference number
 
@@ -534,7 +523,6 @@ impl QRBill {
             language: options.language,
             top_line: options.top_line,
             payment_line: options.payment_line,
-            font_factor: options.font_factor,
         })
     }
 
@@ -771,7 +759,7 @@ impl QRBill {
 
         y_pos += line_space;
 
-        for line in self.creditor.as_paragraph() {
+        for line in self.creditor.as_paragraph(MAX_CHARS_RECEIPT_LINE) {
             group = group.add(
                 Text::new()
                     .add(svg::node::Text::new(line))
@@ -814,7 +802,7 @@ impl QRBill {
         y_pos += line_space;
 
         if let Some(debtor) = &self.debtor {
-            for line in debtor.as_paragraph() {
+            for line in debtor.as_paragraph(MAX_CHARS_RECEIPT_LINE) {
                 group = group.add(
                     Text::new()
                         .add(svg::node::Text::new(line))
@@ -826,7 +814,6 @@ impl QRBill {
             }
         } else {
             group = Self::draw_blank_rectangle(group, margin, y_pos, mm(52.0), mm(25.0));
-            y_pos += mm(28.0);
         }
 
         group = group.add(
@@ -1025,7 +1012,7 @@ impl QRBill {
         y_pos += line_space;
 
         // Draw creditor info.
-        for line in self.creditor.as_paragraph() {
+        for line in self.creditor.as_paragraph(MAX_CHARS_PAYMENT_LINE) {
             group = group.add(
                 Text::new()
                     .add(svg::node::Text::new(line))
@@ -1101,7 +1088,7 @@ impl QRBill {
                 &mut y_pos,
                 line_space,
             );
-            for line in debtor.as_paragraph() {
+            for line in debtor.as_paragraph(MAX_CHARS_PAYMENT_LINE) {
                 group = group.add(
                     Text::new()
                         .add(svg::node::Text::new(line))

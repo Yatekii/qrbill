@@ -21,7 +21,6 @@ fn main() -> anyhow::Result<()> {
         language: qrbill::Language::English,
         top_line: true,
         payment_line: true,
-        font_factor: 1.0,
     })?;
 
     qrbill.write_to_file("test.svg", false)?;
