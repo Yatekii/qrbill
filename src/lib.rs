@@ -1,0 +1,1237 @@
+pub mod esr;
+pub mod iso11649;
+
+use std::fmt::{write, Write};
+
+use chrono::{Date, Utc};
+pub use iban::Iban;
+use iban::IbanLike;
+use isocountry::CountryCode;
+use qrcode::{render, types::QrError, QrCode};
+use regex::Regex;
+use svg::{
+    node::{
+        element::{Group, Line, Path, Polygon, Rectangle, Text},
+        Value,
+    },
+    Document,
+};
+use thousands::Separable;
+
+// import re
+// from datetime import date
+// from decimal import Decimal
+// from io import BytesIO
+// from itertools import chain
+// from pathlib import Path
+
+// import qrcode
+// import qrcode.image.svg
+// import svgwrite
+// from iso3166 import countries
+// from stdnum import iban, iso11649
+// from stdnum.ch import esr
+
+const IBAN_ALLOWED_COUNTRIES: [&str; 2] = ["CH", "LI"];
+const QR_IID_START: usize = 30000;
+const QR_IID_END: usize = 31999;
+// AMOUNT_REGEX = r'^\d{1,9}\.\d{2}$'
+// DATE_REGEX = r'(\d{4})-(\d{2})-(\d{2})'
+
+const MM_TO_UU: f64 = 3.543307;
+const BILL_HEIGHT: f64 = 105.0 * MM_TO_UU;
+const RECEIPT_WIDTH: f64 = 62.0 * MM_TO_UU; // mm
+const PAYMENT_WIDTH: f64 = 148.0 * MM_TO_UU; // mm
+const MAX_CHARS_PAYMENT_LINE: usize = 72;
+const MAX_CHARS_RECEIPT_LINE: usize = 38;
+const A4_WIDTH: f64 = 210.0 * MM_TO_UU;
+const A4_HEIGHT: f64 = 297.0 * MM_TO_UU;
+
+// Annex D: Multilingual headings
+const LABEL_PAYMENT_PART: Translation = Translation {
+    en: "Payment part",
+    de: "Zahlteil",
+    fr: "Section paiement",
+    it: "Sezione pagamento",
+};
+
+const LABEL_PAYABLE_TO: Translation = Translation {
+    en: "Account / Payable to",
+    de: "Konto / Zahlbar an",
+    fr: "Compte / Payable à",
+    it: "Conto / Pagabile a",
+};
+
+const LABEL_REFERENCE: Translation = Translation {
+    en: "Reference",
+    de: "Referenz",
+    fr: "Référence",
+    it: "Riferimento",
+};
+
+const LABEL_ADDITIONAL_INFORMATION: Translation = Translation {
+    en: "Additional information",
+    de: "Zusätzliche Informationen",
+    fr: "Informations supplémentaires",
+    it: "Informazioni supplementari",
+};
+
+const LABEL_CURRENCY: Translation = Translation {
+    en: "Currency",
+    de: "Währung",
+    fr: "Monnaie",
+    it: "Valuta",
+};
+
+const LABEL_AMOUNT: Translation = Translation {
+    en: "Amount",
+    de: "Betrag",
+    fr: "Montant",
+    it: "Importo",
+};
+
+const LABEL_RECEIPT: Translation = Translation {
+    en: "Receipt",
+    de: "Empfangsschein",
+    fr: "Récépissé",
+    it: "Ricevuta",
+};
+
+const LABEL_ACCEPTANCE_POINT: Translation = Translation {
+    en: "Acceptance point",
+    de: "Annahmestelle",
+    fr: "Point de dépôt",
+    it: "Punto di accettazione",
+};
+
+const LABEL_SEPARATE_BEFORE_PAYING: Translation = Translation {
+    en: "Separate before paying in",
+    de: "Vor der Einzahlung abzutrennen",
+    fr: "A détacher avant le versement",
+    it: "Da staccare prima del versamento",
+};
+
+const LABEL_PAYABLE_BY: Translation = Translation {
+    en: "Payable by",
+    de: "Zahlbar durch",
+    fr: "Payable par",
+    it: "Pagabile da",
+};
+
+const LABEL_PAYABLE_BY_EXTENDED: Translation = Translation {
+    en: "Payable by (name/address)",
+    de: "Zahlbar durch (Name/Adresse)",
+    fr: "Payable par (nom/adresse)",
+    it: "Pagabile da (nome/indirizzo)",
+};
+
+// The extra ending space allows to differentiate from the other: "Payable by" above.
+const LABEL_PAYABLE_BY_DATE: Translation = Translation {
+    en: "Payable by",
+    de: "Zahlbar bis",
+    fr: "Payable jusqu’au",
+    it: "Pagabile fino al",
+};
+
+const LABEL_IN_FAVOR_OF: Translation = Translation {
+    en: "In favour of",
+    de: "Zugunsten",
+    fr: "En faveur de",
+    it: "A favore di",
+};
+
+struct Translation {
+    en: &'static str,
+    de: &'static str,
+    fr: &'static str,
+    it: &'static str,
+}
+
+const SCISSORS_SVG_PATH: &str = "m 0.764814,4.283977 c 0.337358,0.143009 0.862476,-0.115279 0.775145,-0.523225 -0.145918,-0.497473 
+    -0.970289,-0.497475 -1.116209,-2e-6 -0.0636,0.23988 0.128719,0.447618 0.341064,0.523227 z m 3.875732,-1.917196 
+    c 1.069702,0.434082 2.139405,0.868164 3.209107,1.302246 -0.295734,0.396158 -0.866482,0.368049 -1.293405,0.239509 
+    -0.876475,-0.260334 -1.71099,-0.639564 -2.563602,-0.966653 -0.132426,-0.04295 -0.265139,-0.124595 
+    -0.397393,-0.144327 -0.549814,0.22297 -1.09134,0.477143 -1.667719,0.62213 -0.07324,0.232838 0.150307,0.589809 
+    -0.07687,0.842328 -0.311347,0.532157 -1.113542,0.624698 -1.561273,0.213165 -0.384914,-0.301216 
+    -0.379442,-0.940948 7e-6,-1.245402 0.216628,-0.191603 0.506973,-0.286636 0.794095,-0.258382 0.496639,0.01219 
+    1.013014,-0.04849 1.453829,-0.289388 0.437126,-0.238777 0.07006,-0.726966 -0.300853,-0.765416 
+    -0.420775,-0.157424 -0.870816,-0.155853 -1.312747,-0.158623 -0.527075,-0.0016 -1.039244,-0.509731 
+    -0.904342,-1.051293 0.137956,-0.620793 0.952738,-0.891064 1.47649,-0.573851 0.371484,0.188118 
+    0.594679,0.675747 0.390321,1.062196 0.09829,0.262762 0.586716,0.204086 0.826177,0.378204 0.301582,0.119237 
+    0.600056,0.246109 0.899816,0.36981 0.89919,-0.349142 1.785653,-0.732692 2.698347,-1.045565 0.459138,-0.152333 
+    1.033472,-0.283325 1.442046,0.05643 0.217451,0.135635 -0.06954,0.160294 -0.174725,0.220936 -0.979101,0.397316 
+    -1.958202,0.794633 -2.937303,1.19195 z m -3.44165,-1.917196 c -0.338434,-0.14399 -0.861225,0.116943 
+    -0.775146,0.524517 0.143274,0.477916 0.915235,0.499056 1.10329,0.04328 0.09674,-0.247849 -0.09989,-0.490324 
+    -0.328144,-0.567796 z";
+
+trait AddressExt {
+    fn data_list(&self) -> Vec<String>;
+
+    fn as_paragraph(&self) -> Vec<String>;
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("An address line should have between 1 and 70 characters.")]
+    Line,
+    #[error("An address name should have between 1 and 70 characters.")]
+    Name,
+    #[error("A street should have between 1 and 70 characters.")]
+    Street,
+    #[error("A postal code should have between 1 and 16 characters.")]
+    PostalCode,
+    #[error("A house number should have between 1 and 16 characters.")]
+    HouseNumber,
+    #[error("A city should have between 1 and 35 characters.")]
+    City,
+    #[error("The IBAN needs to start with CH or LI.")]
+    InvalidIban,
+    #[error("Extra infos can be no more than 140 characters.")]
+    ExtraInfos,
+    #[error(
+        "At maximum two alternative procedure with a maximum of 100 characters can be specified."
+    )]
+    AlternativeProcedure,
+    #[error("An error with the QR code generation occured.")]
+    Qr(#[from] QrError),
+    #[error("An IO error occured.")]
+    Io(#[from] std::io::Error),
+}
+
+pub enum Address {
+    Cobined(CombinedAddress),
+    Structured(StructuredAddress),
+}
+
+impl AddressExt for Address {
+    fn data_list(&self) -> Vec<String> {
+        match self {
+            Address::Cobined(a) => a.data_list(),
+            Address::Structured(a) => a.data_list(),
+        }
+    }
+
+    fn as_paragraph(&self) -> Vec<String> {
+        match self {
+            Address::Cobined(a) => a.as_paragraph(),
+            Address::Structured(a) => a.as_paragraph(),
+        }
+    }
+}
+
+pub struct CombinedAddress {
+    name: String,
+    line1: String,
+    line2: String,
+    country: CountryCode,
+}
+
+impl CombinedAddress {
+    pub fn new(
+        name: String,
+        line1: String,
+        line2: String,
+        country: CountryCode,
+    ) -> Result<Self, Error> {
+        if line1.len() > 70 || line2.len() > 70 {
+            return Err(Error::Line);
+        }
+        Ok(Self {
+            name,
+            line1,
+            line2,
+            country,
+        })
+    }
+}
+
+impl AddressExt for CombinedAddress {
+    fn data_list(&self) -> Vec<String> {
+        vec![
+            "K".into(),
+            self.name.clone(),
+            self.line1.clone(),
+            self.line2.clone(),
+            "".into(),
+            "".into(),
+            self.country.to_string(),
+        ]
+    }
+
+    fn as_paragraph(&self) -> Vec<String> {
+        [self.name.clone(), self.line1.clone(), self.line2.clone()]
+            .iter()
+            .map(|line| textwrap::fill(line, MAX_CHARS_PAYMENT_LINE))
+            .collect()
+    }
+}
+
+pub struct StructuredAddress {
+    pub name: String,
+    pub street: String,
+    pub house_number: String,
+    pub postal_code: String,
+    pub city: String,
+    pub country: CountryCode,
+}
+
+impl StructuredAddress {
+    pub fn new(
+        name: String,
+        street: String,
+        house_number: String,
+        postal_code: String,
+        city: String,
+        country: CountryCode,
+    ) -> Result<Self, Error> {
+        if name.len() > 70 {
+            return Err(Error::Name);
+        }
+        if street.len() > 70 {
+            return Err(Error::Street);
+        }
+        if house_number.len() > 16 {
+            return Err(Error::HouseNumber);
+        }
+        if postal_code.len() > 16 {
+            return Err(Error::PostalCode);
+        }
+        if city.len() > 35 {
+            return Err(Error::City);
+        }
+
+        Ok(Self {
+            name,
+            street,
+            house_number,
+            postal_code,
+            city,
+            country,
+        })
+    }
+}
+
+impl AddressExt for StructuredAddress {
+    fn data_list(&self) -> Vec<String> {
+        vec![
+            "S".into(),
+            self.name.clone(),
+            self.street.clone(),
+            self.house_number.clone(),
+            self.postal_code.clone(),
+            self.city.clone(),
+            self.country.to_string(),
+        ]
+    }
+
+    fn as_paragraph(&self) -> Vec<String> {
+        let mut lines = vec![
+            self.name.clone(),
+            format!("{} {}", self.street, self.house_number),
+            format!("{}-{} {}", self.country, self.postal_code, self.city),
+        ];
+        lines
+            .iter()
+            .map(|line| textwrap::fill(line, MAX_CHARS_PAYMENT_LINE))
+            .collect()
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Currency {
+    SwissFranc,
+    Euro,
+}
+
+impl ToString for Currency {
+    fn to_string(&self) -> String {
+        match self {
+            Currency::SwissFranc => "CHF".to_string(),
+            Currency::Euro => "EUR".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Language {
+    German,
+    English,
+    French,
+    Italian,
+}
+
+pub struct QRBill {
+    account: Iban,
+    creditor: Address,
+    amount: Option<f64>,
+    currency: Currency,
+    due_date: Option<Date<Utc>>,
+    debtor: Option<Address>,
+    reference: Reference,
+    /// Extra information aimed for the bill recipient.
+    extra_infos: Option<String>,
+    /// Two additional fields for alternative payment schemes.
+    alternative_processes: Vec<String>,
+    /// Language of the output.
+    language: Language,
+    /// Print a horizontal line at the top of the bill.
+    top_line: bool,
+    /// Print a vertical line between the receipt and the bill itself.
+    payment_line: bool,
+    /// A zoom factor for all texts in the bill.
+    font_factor: f64,
+}
+
+pub struct QRBillOptions {
+    pub account: Iban,
+    pub creditor: Address,
+    pub amount: Option<f64>,
+    pub currency: Currency,
+    pub due_date: Option<Date<Utc>>,
+    pub debtor: Option<Address>,
+    pub reference: Reference,
+    /// Extra information aimed for the bill recipient.
+    pub extra_infos: Option<String>,
+    /// Two additional fields for alternative payment schemes.
+    pub alternative_processes: Vec<String>,
+    /// Language of the output.
+    pub language: Language,
+    /// Print a horizontal line at the top of the bill.
+    pub top_line: bool,
+    /// Print a vertical line between the receipt and the bill itself.
+    pub payment_line: bool,
+    /// A zoom factor for all texts in the bill.
+    pub font_factor: f64,
+}
+
+#[derive(Debug, Clone)]
+pub enum Reference {
+    Qrr(esr::Esr),
+    Scor(iso11649::Iso11649),
+    None,
+}
+
+impl Reference {
+    fn data_list(&self) -> Vec<String> {
+        match self {
+            Reference::Qrr(esr) => vec!["QRR".to_string(), esr.to_raw()],
+            Reference::Scor(scor) => vec!["SCOR".to_string(), scor.to_raw()],
+            Reference::None => vec!["NON".to_string(), "".to_string()],
+        }
+    }
+}
+
+impl ToString for Reference {
+    fn to_string(&self) -> String {
+        match self {
+            Reference::Qrr(esr) => esr.to_string(),
+            Reference::Scor(reference) => reference.to_string(),
+            Reference::None => String::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct Style {
+    font_size: Option<f64>,
+    font_family: Option<&'static str>,
+    font_weight: Option<&'static str>,
+}
+
+impl From<Style> for Value {
+    fn from(style: Style) -> Self {
+        let mut s = String::new();
+        if let Some(font_size) = style.font_size {
+            write!(&mut s, "font-size: {};", font_size).expect("This is a bug. Please report it.");
+        }
+        if let Some(font_family) = style.font_family {
+            write!(&mut s, "font-family: {};", font_family)
+                .expect("This is a bug. Please report it.");
+        }
+        if let Some(font_weight) = style.font_weight {
+            write!(&mut s, "font-weight: {};", font_weight)
+                .expect("This is a bug. Please report it.");
+        }
+
+        s.into()
+    }
+}
+
+impl QRBill {
+    const QR_TYPE: &'static str = "SPC";
+    const VERSION: &'static str = "0200";
+    const CODING: usize = 1;
+    const ALLOWED_CURRENCIES: [&'static str; 2] = ["CHF", "EUR"];
+    const REFERENCE_TYPES: [&'static str; 3] = ["QRR", "SCOR", "NON"];
+
+    const TITLE_FONT: Style = Style {
+        font_size: Some(12.0),
+        font_family: Some("Helvetica"),
+        font_weight: Some("bold"),
+    };
+
+    const FONT: Style = Style {
+        font_size: Some(10.0),
+        font_family: Some("Helvetica"),
+        font_weight: None,
+    };
+
+    const HEAD_FONT: Style = Style {
+        font_size: Some(8.0),
+        font_family: Some("Helvetica"),
+        font_weight: Some("bold"),
+    };
+
+    const PROCESS_FONT: Style = Style {
+        font_size: Some(7.0),
+        font_family: Some("Helvetica"),
+        font_weight: None,
+    };
+
+    /// Creates a new QR-Bill which can be rendered onto an SVG.
+    pub fn new(options: QRBillOptions) -> Result<Self, Error> {
+        if !IBAN_ALLOWED_COUNTRIES.contains(&&options.account.country_code()) {
+            return Err(Error::InvalidIban);
+        }
+        let iban_iid = options.account.electronic_str()[4..9]
+            .parse()
+            .expect("This is a bug. Please report it.");
+        let account_is_qriban = QR_IID_START <= iban_iid && iban_iid <= QR_IID_END;
+
+        // TODO validate ESR reference number
+
+        // TODO: validate QR IBAN / QRID matches.
+
+        if let Some(extra_infos) = options.extra_infos.as_ref() {
+            if extra_infos.len() > 120 {
+                return Err(Error::ExtraInfos);
+            }
+        }
+
+        if options.alternative_processes.len() > 2 {
+            return Err(Error::AlternativeProcedure);
+        }
+        if options.alternative_processes.iter().any(|v| v.len() > 100) {
+            return Err(Error::AlternativeProcedure);
+        }
+
+        Ok(Self {
+            account: options.account,
+            creditor: options.creditor,
+            amount: options.amount,
+            currency: options.currency,
+            due_date: options.due_date,
+            debtor: options.debtor,
+            reference: options.reference,
+            extra_infos: options.extra_infos,
+            alternative_processes: options.alternative_processes,
+            language: options.language,
+            top_line: options.top_line,
+            payment_line: options.payment_line,
+            font_factor: options.font_factor,
+        })
+    }
+
+    /// Return data to be encoded in the QR code in the standard text representation of a list of strings.
+    fn qr_data(&self) -> String {
+        let mut data = vec![
+            Self::QR_TYPE.to_string(),
+            Self::VERSION.to_string(),
+            Self::CODING.to_string(),
+            self.account.to_string(),
+        ];
+        data.extend(self.creditor.data_list());
+        data.extend(vec!["".into(); 7]);
+        data.extend([
+            self.amount.map(|v| v.to_string()).unwrap_or_default(),
+            self.currency.to_string(),
+        ]);
+        data.extend(
+            self.debtor
+                .as_ref()
+                .map(|v| v.data_list())
+                .unwrap_or_default(),
+        );
+        data.extend(self.reference.data_list());
+        data.extend([self.extra_infos.clone().unwrap_or_default()]);
+        data.push("EPD".to_string());
+        data.extend(self.alternative_processes.clone());
+
+        data.join("\r\n")
+    }
+
+    /// Generates the QR image in string form.
+    fn qr_image(&self) -> Result<String, Error> {
+        let code = QrCode::with_error_correction_level(self.qr_data(), qrcode::EcLevel::M)?;
+        Ok(code
+            .render()
+            .dark_color(render::svg::Color("black"))
+            .light_color(render::svg::Color("white"))
+            .build())
+    }
+
+    /// Draws the swiss cross in the middle of the QR code.
+    fn draw_swiss_cross(group: Group, x: f64, y: f64, size: f64) -> Group {
+        let scale_factor = mm(7.0) / 19.0;
+        let cross_group = Group::new()
+            .add(
+            Polygon::new()
+                    .set("points", "18.3,0.7 1.6,0.7 0.7,0.7 0.7,1.6 0.7,18.3 0.7,19.1 1.6,19.1 18.3,19.1 19.1,19.1 19.1,18.3 19.1,1.6 19.1,0.7")
+                    .set("fill", "black")
+            )
+            .add(
+                Rectangle::new()
+                    .set("x", 8.3)
+                    .set("y", 4.0)
+                    .set("width", 3.3)
+                    .set("height", 11.0)
+                    .set("fill", "white")
+            )
+            .add(
+                Rectangle::new()
+                    .set("x", 4.4)
+                    .set("y", 7.9)
+                    .set("width", 11.0)
+                    .set("height", 3.3)
+                    .set("fill", "white")
+            )
+            .add(
+                Polygon::new()
+                        .set("points", "0.7,1.6 0.7,18.3 0.7,19.1 1.6,19.1 18.3,19.1 19.1,19.1 19.1,18.3 19.1,1.6 19.1,0.7 18.3,0.7 1.6,0.7 0.7,0.7")
+                        .set("fill", "none")
+                        .set("stroke", "white")
+                        .set("stroke_width", 1.4357)
+                )
+            .set("transform", format!("translate({}, {}) scale({})", x + size / 2.0 - 10.0 * scale_factor, y + size / 2.0 - 10.0 * scale_factor, scale_factor))
+            .set("id", "swiss-cross");
+
+        group.add(cross_group)
+    }
+
+    /// Draws a blank rectangle with given properties.
+    fn draw_blank_rectangle(group: Group, x: f64, y: f64, width: f64, height: f64) -> Group {
+        // TODO: stroke_info = {'stroke': 'black', 'stroke_width': '0.26mm', 'stroke_linecap': 'square'}
+        let rectangle_group = Group::new()
+            .add(
+                Line::new()
+                    .set("x1", x)
+                    .set("y1", y)
+                    .set("x2", x)
+                    .set("y2", y + mm(2.0)),
+            )
+            .add(
+                Line::new()
+                    .set("x1", x)
+                    .set("y1", y)
+                    .set("x2", x + mm(3.0))
+                    .set("y2", y),
+            )
+            .add(
+                Line::new()
+                    .set("x1", x)
+                    .set("y1", y + height)
+                    .set("x2", x)
+                    .set("y2", y + height + mm(-2.0)),
+            )
+            .add(
+                Line::new()
+                    .set("x1", x)
+                    .set("y1", y + height)
+                    .set("x2", x + mm(3.0))
+                    .set("y2", y + height),
+            )
+            .add(
+                Line::new()
+                    .set("x1", x + width + mm(-3.0))
+                    .set("y1", y)
+                    .set("x2", x + width)
+                    .set("y2", y),
+            )
+            .add(
+                Line::new()
+                    .set("x1", x + width)
+                    .set("y1", y)
+                    .set("x2", x + width)
+                    .set("y2", y + mm(2.0)),
+            )
+            .add(
+                Line::new()
+                    .set("x1", x + width + mm(-3.0))
+                    .set("y1", y + height)
+                    .set("x2", x + width)
+                    .set("y2", y + height),
+            )
+            .add(
+                Line::new()
+                    .set("x1", x + width)
+                    .set("y1", y + height)
+                    .set("x2", x + width)
+                    .set("y2", y + mm(-2.0)),
+            );
+        group.add(rectangle_group)
+    }
+
+    /// Gets the correct translation for a given label.
+    fn label(&self, label: &Translation) -> &str {
+        match self.language {
+            Language::German => label.de,
+            Language::English => label.en,
+            Language::French => label.fr,
+            Language::Italian => label.it,
+        }
+    }
+
+    /// Writes the represented QRBill into an SVG file.
+    ///
+    /// * `full_page`: Makes the generated SVG the size of a full A4 page.
+    pub fn write_to_file(
+        &self,
+        name: impl AsRef<std::path::Path>,
+        full_page: bool,
+    ) -> Result<(), Error> {
+        // Make a properly sized document with a correct viewbox.
+        let document = if full_page {
+            Document::new()
+                .set("width", A4_WIDTH)
+                .set("height", A4_HEIGHT)
+                .set("viewBox", format!("0 0 {} {}", A4_WIDTH, A4_HEIGHT))
+        } else {
+            Document::new()
+                .set("width", A4_WIDTH)
+                .set("height", BILL_HEIGHT)
+                .set("viewBox", format!("0 0 {} {}", A4_WIDTH, BILL_HEIGHT))
+        };
+
+        // White background.
+        let mut document = document.add(
+            Rectangle::new()
+                .set("x", 0.0)
+                .set("y", 0.0)
+                .set("width", "100%")
+                .set("height", "100%")
+                .set("fill", "white"),
+        );
+
+        let mut bill_group = self.draw_bill()?;
+
+        if full_page {
+            let (bg, text) = self.transform_to_full_page(bill_group);
+            bill_group = bg;
+            document = document.add(text);
+        }
+
+        document = document.add(bill_group);
+
+        svg::save(name, &document)?;
+
+        Ok(())
+    }
+
+    /// Renders to an A4 page, adding the bill in a group element.
+    ///
+    /// Also adds a note about separating the bill.
+    fn transform_to_full_page(&self, group: Group) -> (Group, Text) {
+        let y_offset = A4_HEIGHT - BILL_HEIGHT;
+        let group = group.set("transform", format!("translate(0, {})", y_offset));
+
+        let x_center = A4_WIDTH / 2.0;
+        let y_pos = y_offset - mm(2.0);
+
+        (
+            group,
+            Text::new()
+                .add(svg::node::Text::new(
+                    self.label(&LABEL_SEPARATE_BEFORE_PAYING),
+                ))
+                .set("x", x_center)
+                .set("y", y_pos)
+                .set("text_anchor", "middle")
+                .set("font_style", "italic"),
+        )
+    }
+
+    /// Draws the entire QR bill SVG image.
+    fn draw_bill(&self) -> Result<Group, Error> {
+        let margin = mm(5.0);
+        let payment_left = RECEIPT_WIDTH + mm(margin);
+        let payment_detail_left = payment_left + mm(46.0 + 5.0);
+
+        let mut y_pos = mm(15.0);
+        let line_space = mm(3.5);
+
+        let mut group = Group::new()
+            .add(
+                Text::new()
+                    .add(svg::node::Text::new(self.label(&LABEL_RECEIPT)))
+                    .set("x", margin)
+                    .set("y", mm(10.0))
+                    .set("style", Self::TITLE_FONT),
+            )
+            .add(
+                Text::new()
+                    .add(svg::node::Text::new(self.label(&LABEL_PAYABLE_TO)))
+                    .set("x", margin)
+                    .set("y", mm(y_pos))
+                    .set("style", Self::HEAD_FONT),
+            );
+
+        y_pos += line_space;
+
+        group = group.add(
+            Text::new()
+                .add(svg::node::Text::new(self.account.to_string()))
+                .set("x", margin)
+                .set("y", mm(y_pos))
+                .set("style", Self::FONT),
+        );
+
+        y_pos += line_space;
+
+        for line in self.creditor.as_paragraph() {
+            group = group.add(
+                Text::new()
+                    .add(svg::node::Text::new(line))
+                    .set("x", margin)
+                    .set("y", mm(y_pos))
+                    .set("style", Self::FONT),
+            );
+            y_pos += line_space;
+        }
+
+        if !matches!(self.reference, Reference::None) {
+            y_pos += mm(1.0);
+            group = group.add(
+                Text::new()
+                    .add(svg::node::Text::new(self.label(&LABEL_REFERENCE)))
+                    .set("x", margin)
+                    .set("y", mm(y_pos))
+                    .set("style", Self::HEAD_FONT),
+            );
+            y_pos += line_space;
+            group = group.add(
+                Text::new()
+                    .add(svg::node::Text::new(self.reference.to_string()))
+                    .set("x", margin)
+                    .set("y", mm(y_pos))
+                    .set("style", Self::FONT),
+            );
+            y_pos += line_space;
+        }
+
+        y_pos += mm(1.0);
+
+        group = group.add(
+            Text::new()
+                .add(svg::node::Text::new(self.label(&LABEL_PAYABLE_BY)))
+                .set("x", margin)
+                .set("y", mm(y_pos))
+                .set("style", Self::HEAD_FONT),
+        );
+        y_pos += line_space;
+
+        if let Some(debtor) = &self.debtor {
+            for line in debtor.as_paragraph() {
+                group = group.add(
+                    Text::new()
+                        .add(svg::node::Text::new(line))
+                        .set("x", margin)
+                        .set("y", mm(y_pos))
+                        .set("style", Self::FONT),
+                );
+                y_pos += line_space;
+            }
+        } else {
+            group = Self::draw_blank_rectangle(group, margin, y_pos, mm(52.0), mm(25.0));
+            y_pos += mm(28.0);
+        }
+
+        group = group.add(
+            Text::new()
+                .add(svg::node::Text::new(self.label(&LABEL_CURRENCY)))
+                .set("x", margin)
+                .set("y", mm(72.0))
+                .set("style", Self::HEAD_FONT),
+        );
+        group = group.add(
+            Text::new()
+                .add(svg::node::Text::new(self.label(&LABEL_AMOUNT)))
+                .set("x", margin + mm(12.0))
+                .set("y", mm(72.0))
+                .set("style", Self::HEAD_FONT),
+        );
+        group = group.add(
+            Text::new()
+                .add(svg::node::Text::new(self.currency.to_string()))
+                .set("x", margin)
+                .set("y", mm(77.0))
+                .set("style", Self::FONT),
+        );
+
+        if let Some(amount) = self.amount {
+            group = group.add(
+                Text::new()
+                    .add(svg::node::Text::new(format_amount(amount)))
+                    .set("x", margin + mm(12.0))
+                    .set("y", mm(77.0))
+                    .set("style", Self::FONT),
+            );
+        } else {
+            group =
+                Self::draw_blank_rectangle(group, margin + mm(25.0), mm(75.0), mm(27.0), mm(11.0));
+        }
+
+        group = group.add(
+            Text::new()
+                .add(svg::node::Text::new(self.label(&LABEL_ACCEPTANCE_POINT)))
+                .set("x", RECEIPT_WIDTH + margin * -1.0)
+                .set("y", mm(86.0))
+                .set("style", Self::HEAD_FONT),
+        );
+
+        if self.top_line {
+            group = group.add(
+                Line::new()
+                    .set("x1", 0.0)
+                    .set("y1", mm(0.141))
+                    .set("x2", RECEIPT_WIDTH + PAYMENT_WIDTH)
+                    .set("y2", mm(0.141))
+                    .set("stroke", "black")
+                    .set("stroke-dasharray", "2 2")
+                    .set("fill", "none"),
+            );
+        }
+
+        if self.payment_line {
+            group = group.add(
+                Line::new()
+                    .set("x1", RECEIPT_WIDTH)
+                    .set("y1", 0.0)
+                    .set("x2", RECEIPT_WIDTH)
+                    .set("y2", BILL_HEIGHT)
+                    .set("stroke", "black")
+                    .set("stroke-dasharray", "2 2")
+                    .set("fill", "none"),
+            );
+
+            group = group.add(
+                Path::new()
+                    .set("d", SCISSORS_SVG_PATH)
+                    .set(
+                        "style",
+                        "fill:#000000; fill-opacity:1; fill-rule:nonzero; stroke:none",
+                    )
+                    .set("scale", 1.9)
+                    .set("transform", "scale(1.9) translate(118, 40) rotate(90)"),
+            );
+        }
+
+        group = group.add(
+            Text::new()
+                .add(svg::node::Text::new(self.label(&LABEL_PAYMENT_PART)))
+                .set("x", payment_left)
+                .set("y", mm(10.0))
+                .set("style", Self::TITLE_FONT),
+        );
+
+        let path_re = Regex::new(r"<path [^>]*>").unwrap();
+        let data_re = Regex::new(r#" d="([^"]*)""#).unwrap();
+        let size_re = Regex::new(r#"<svg .* width="(\d*)" [^>]*>"#).unwrap();
+
+        let qr_image = self.qr_image()?;
+
+        let size = size_re
+            .captures_iter(&qr_image)
+            .next()
+            .expect("This is a bug. Please report it.");
+
+        let path = path_re
+            .captures_iter(&qr_image)
+            .next()
+            .expect("This is a bug. Please report it.");
+
+        let data = data_re
+            .captures_iter(&path[0])
+            .next()
+            .expect("This is a bug. Please report it.");
+
+        let qr_left = payment_left;
+        let qr_top = 60.0;
+        let scale_factor = mm(45.8)
+            / size[1]
+                .parse::<f64>()
+                .expect("This is a bug. Please report it.");
+
+        group = group.add(
+            Path::new()
+                .set("d", &data[1])
+                .set(
+                    "style",
+                    "fill:black; fill-opacity:1; fill-rule:nonzero; stroke:none",
+                )
+                .set(
+                    "transform",
+                    format!("translate({}, {}) scale({})", qr_left, qr_top, scale_factor),
+                ),
+        );
+
+        group = Self::draw_swiss_cross(group, payment_left, 60.0, mm(45.8));
+
+        group = group.add(
+            Text::new()
+                .add(svg::node::Text::new(self.label(&LABEL_CURRENCY)))
+                .set("x", payment_left)
+                .set("y", mm(72.0))
+                .set("style", Self::HEAD_FONT),
+        );
+
+        group = group.add(
+            Text::new()
+                .add(svg::node::Text::new(self.label(&LABEL_AMOUNT)))
+                .set("x", payment_left + mm(12.0))
+                .set("y", mm(72.0))
+                .set("style", Self::HEAD_FONT),
+        );
+
+        group = group.add(
+            Text::new()
+                .add(svg::node::Text::new(self.currency.to_string()))
+                .set("x", payment_left)
+                .set("y", mm(77.0))
+                .set("style", Self::FONT),
+        );
+
+        if let Some(amount) = self.amount {
+            group = group.add(
+                Text::new()
+                    .add(svg::node::Text::new(format_amount(amount)))
+                    .set("x", payment_left + mm(12.0))
+                    .set("y", mm(77.0))
+                    .set("style", Self::FONT),
+            );
+        } else {
+            group = Self::draw_blank_rectangle(
+                group,
+                RECEIPT_WIDTH + margin + mm(12.0),
+                mm(75.0),
+                mm(40.0),
+                mm(15.0),
+            );
+        }
+
+        // Draw the right side of the bill (The things right of the QR-Code).
+        let mut y_pos = mm(10.0);
+        let line_space = mm(3.5);
+
+        group = Self::add_header(
+            group,
+            self.label(&LABEL_PAYABLE_TO),
+            payment_detail_left,
+            &mut y_pos,
+            line_space,
+        );
+
+        group = group.add(
+            Text::new()
+                .add(svg::node::Text::new(self.account.to_string()))
+                .set("x", payment_detail_left + y_pos)
+                .set("y", mm(72.0))
+                .set("style", Self::HEAD_FONT),
+        );
+        y_pos += line_space;
+
+        // Draw creditor info.
+        for line in self.creditor.as_paragraph() {
+            group = group.add(
+                Text::new()
+                    .add(svg::node::Text::new(line))
+                    .set("x", payment_detail_left)
+                    .set("y", mm(y_pos))
+                    .set("style", Self::FONT),
+            );
+            y_pos += line_space;
+        }
+
+        // Draw reference info.
+        if !matches!(self.reference, Reference::None) {
+            group = Self::add_header(
+                group,
+                self.label(&LABEL_REFERENCE),
+                payment_detail_left,
+                &mut y_pos,
+                line_space,
+            );
+            group = group.add(
+                Text::new()
+                    .add(svg::node::Text::new(self.reference.to_string()))
+                    .set("x", margin)
+                    .set("y", mm(y_pos))
+                    .set("style", Self::FONT),
+            );
+            y_pos += line_space;
+        }
+
+        // Add extra info if present.
+        if let Some(extra_info) = &self.extra_infos {
+            group = Self::add_header(
+                group,
+                self.label(&LABEL_ADDITIONAL_INFORMATION),
+                payment_detail_left,
+                &mut y_pos,
+                line_space,
+            );
+
+            let extra_info = if extra_info.contains("##") {
+                let mut extra_info: Vec<_> =
+                    extra_info.split("##").map(|s| s.to_string()).collect();
+                extra_info[1] = "##".to_string() + &extra_info[1];
+                extra_info
+            } else {
+                vec![extra_info.to_string()]
+            };
+
+            for line in extra_info.iter().flat_map(|line| {
+                line.chars()
+                    .collect::<Vec<char>>()
+                    .chunks(MAX_CHARS_PAYMENT_LINE)
+                    .map(|c| c.iter().collect::<String>())
+                    .collect::<Vec<String>>()
+            }) {
+                group = group.add(
+                    Text::new()
+                        .add(svg::node::Text::new(line))
+                        .set("x", payment_detail_left)
+                        .set("y", mm(y_pos))
+                        .set("style", Self::FONT),
+                );
+                y_pos += line_space;
+            }
+        }
+
+        group = group.add(
+            Text::new()
+                .add(svg::node::Text::new(self.label(&LABEL_PAYABLE_BY)))
+                .set("x", margin)
+                .set("y", mm(y_pos))
+                .set("style", Self::HEAD_FONT),
+        );
+        y_pos += line_space;
+
+        // Add debtor info.
+        if let Some(debtor) = &self.debtor {
+            group = Self::add_header(
+                group,
+                self.label(&LABEL_PAYABLE_BY),
+                payment_detail_left,
+                &mut y_pos,
+                line_space,
+            );
+            for line in debtor.as_paragraph() {
+                group = group.add(
+                    Text::new()
+                        .add(svg::node::Text::new(line))
+                        .set("x", payment_detail_left)
+                        .set("y", mm(y_pos))
+                        .set("style", Self::FONT),
+                );
+                y_pos += line_space;
+            }
+        } else {
+            group = Self::add_header(
+                group,
+                self.label(&LABEL_PAYABLE_BY_EXTENDED),
+                payment_detail_left,
+                &mut y_pos,
+                line_space,
+            );
+            group =
+                Self::draw_blank_rectangle(group, payment_detail_left, y_pos, mm(65.0), mm(25.0));
+            y_pos += mm(28.0);
+        }
+
+        // Add extra info if present.
+        if let Some(due_date) = &self.due_date {
+            group = Self::add_header(
+                group,
+                self.label(&LABEL_PAYABLE_BY_DATE),
+                payment_detail_left,
+                &mut y_pos,
+                line_space,
+            );
+
+            group = group.add(
+                Text::new()
+                    .add(svg::node::Text::new(format_date(&self.due_date)))
+                    .set("x", payment_detail_left)
+                    .set("y", mm(y_pos))
+                    .set("style", Self::FONT),
+            );
+            y_pos += line_space;
+        }
+
+        // Draw alternative processes.
+        y_pos += mm(94.0);
+        for alternative_process in &self.alternative_processes {
+            group = group.add(
+                Text::new()
+                    .add(svg::node::Text::new(alternative_process))
+                    .set("x", payment_left)
+                    .set("y", mm(y_pos))
+                    .set("style", Self::PROCESS_FONT),
+            );
+            y_pos += mm(2.2);
+        }
+
+        Ok(group)
+    }
+
+    fn add_header(
+        group: Group,
+        text: impl AsRef<str>,
+        payment_detail_left: f64,
+        y_pos: &mut f64,
+        line_space: f64,
+    ) -> Group {
+        let group = group.add(
+            Text::new()
+                .add(svg::node::Text::new(text.as_ref()))
+                .set("x", payment_detail_left)
+                .set("y", *y_pos)
+                .set("style", Self::HEAD_FONT),
+        );
+
+        *y_pos += line_space;
+
+        group
+    }
+}
+
+/// Converts a millimeter based value into a SVG screen units value.
+/// This should be used to always do math in sceen units even if we have numbers in mm.
+fn mm(value: f64) -> f64 {
+    value * MM_TO_UU
+}
+
+/// Formats the due date according to spec.
+fn format_date(date: &Option<Date<Utc>>) -> String {
+    date.map(|date| date.format("%d.%m.%Y").to_string())
+        .unwrap_or_default()
+}
+
+/// Formats the amount according to spec.
+fn format_amount(amount: f64) -> String {
+    format!("{:.2}", amount).separate_with_spaces()
+}
+
+// def wrap_infos(infos) {
+//     for text in infos:
+//         while(text) {
+//             yield text[:MAX_CHARS_PAYMENT_LINE]
+//             text = text[MAX_CHARS_PAYMENT_LINE:]
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn it_works() {
+        assert_eq!(2 + 2, 4);
+    }
+}
