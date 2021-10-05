@@ -23,13 +23,16 @@ const QR_IID_START: usize = 30000;
 const QR_IID_END: usize = 31999;
 
 const MM_TO_UU: f64 = 3.543307;
-const BILL_HEIGHT: f64 = 105.0 * MM_TO_UU;
+const BILL_HEIGHT_IN_MM: f64 = 105.0;
+const BILL_HEIGHT: f64 = BILL_HEIGHT_IN_MM * MM_TO_UU;
 const RECEIPT_WIDTH: f64 = 62.0 * MM_TO_UU; // mm
 const PAYMENT_WIDTH: f64 = 148.0 * MM_TO_UU; // mm
 const MAX_CHARS_PAYMENT_LINE: usize = 72;
 const MAX_CHARS_RECEIPT_LINE: usize = 38;
-const A4_WIDTH: f64 = 210.0 * MM_TO_UU;
-const A4_HEIGHT: f64 = 297.0 * MM_TO_UU;
+const A4_WIDTH_IN_MM: f64 = 210.0;
+const A4_WIDTH: f64 = A4_WIDTH_IN_MM * MM_TO_UU;
+const A4_HEIGHT_IN_MM: f64 = 297.0;
+const A4_HEIGHT: f64 = A4_HEIGHT_IN_MM * MM_TO_UU;
 
 // Annex D: Multilingual headings
 const LABEL_PAYMENT_PART: Translation = Translation {
@@ -675,13 +678,13 @@ impl QRBill {
         // Make a properly sized document with a correct viewbox.
         let document = if full_page {
             Document::new()
-                .set("width", A4_WIDTH)
-                .set("height", A4_HEIGHT)
+                .set("width", format!("{}mm", A4_WIDTH_IN_MM))
+                .set("height", format!("{}mm", A4_HEIGHT_IN_MM))
                 .set("viewBox", format!("0 0 {} {}", A4_WIDTH, A4_HEIGHT))
         } else {
             Document::new()
-                .set("width", A4_WIDTH)
-                .set("height", BILL_HEIGHT)
+                .set("width", format!("{}mm", A4_WIDTH_IN_MM))
+                .set("height", format!("{}mm", BILL_HEIGHT_IN_MM))
                 .set("viewBox", format!("0 0 {} {}", A4_WIDTH, BILL_HEIGHT))
         };
 
