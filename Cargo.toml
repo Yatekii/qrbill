@@ -1,8 +1,13 @@
 [package]
+author = "Noah Hüsser <noah@huesser.dev>"
 name = "qrbill"
 version = "0.1.0"
 edition = "2018"
 readme = "README.md"
+repository = "https://github.com/Yatekii/qrbill"
+documentation = "https://docs.rs/qrbill/"
+license = "MIT/Apache-2.0"
+description = "A implementation of [qrbill](https://www.swiss-qr-invoice.org/) in Rust"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
