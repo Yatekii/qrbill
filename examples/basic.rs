@@ -2,16 +2,16 @@ use qrbill::{Address, QRBill, QRBillOptions, Reference, StructuredAddress};
 
 fn main() -> anyhow::Result<()> {
     let qrbill = QRBill::new(QRBillOptions {
-        account: "CH51830190NOAHHUESSER".parse()?,
+        account: "CH5800791123000889012".parse()?,
         creditor: Address::Structured(StructuredAddress {
-            name: "Noah Hüsser".to_string(),
+            name: "Noah Huesser".to_string(),
             street: "Ammerswilerstrasse".to_string(),
             house_number: "31F".to_string(),
             postal_code: "5600".to_string(),
             city: "Lenzburg".to_string(),
             country: isocountry::CountryCode::CHE,
         }),
-        amount: Some(42.0),
+        amount: None, //Some(42.0),
         currency: qrbill::Currency::SwissFranc,
         due_date: None,
         debtor: None,

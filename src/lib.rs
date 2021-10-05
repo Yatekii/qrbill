@@ -1,7 +1,7 @@
 pub mod esr;
 pub mod iso11649;
 
-use std::fmt::Write;
+use std::fmt::{format, Write};
 
 use chrono::{Date, Utc};
 pub use iban::Iban;
@@ -544,19 +544,19 @@ impl QRBill {
             Self::QR_TYPE.to_string(),
             Self::VERSION.to_string(),
             Self::CODING.to_string(),
-            self.account.to_string(),
+            self.account.electronic_str().to_string(),
         ];
         data.extend(self.creditor.data_list());
         data.extend(vec!["".into(); 7]);
         data.extend([
-            self.amount.map(|v| v.to_string()).unwrap_or_default(),
+            self.amount.map(|v| format!("{:.2}", v)).unwrap_or_default(),
             self.currency.to_string(),
         ]);
         data.extend(
             self.debtor
                 .as_ref()
                 .map(|v| v.data_list())
-                .unwrap_or_default(),
+                .unwrap_or_else(|| vec!["".into(); 7]),
         );
         data.extend(self.reference.data_list());
         data.extend([self.extra_infos.clone().unwrap_or_default()]);
