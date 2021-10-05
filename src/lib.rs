@@ -614,66 +614,44 @@ impl QRBill {
         group.add(cross_group)
     }
 
+    // Draws a single solid black line.
+    fn draw_line(group: Group, x1: f64, y1: f64, x2: f64, y2: f64) -> Group {
+        group.add(
+            Line::new()
+                .set("x1", x1)
+                .set("y1", y1)
+                .set("x2", x2)
+                .set("y2", y2)
+                .set("stroke", "black")
+                .set("stroke-width", "0.26mm")
+                .set("stroke-linecap", "square"),
+        )
+    }
+
     /// Draws a blank rectangle with given properties.
     fn draw_blank_rectangle(group: Group, x: f64, y: f64, width: f64, height: f64) -> Group {
         // TODO: stroke_info = {'stroke': 'black', 'stroke_width': '0.26mm', 'stroke_linecap': 'square'}
-        let rectangle_group = Group::new()
-            .add(
-                Line::new()
-                    .set("x1", x)
-                    .set("y1", y)
-                    .set("x2", x)
-                    .set("y2", y + mm(2.0)),
-            )
-            .add(
-                Line::new()
-                    .set("x1", x)
-                    .set("y1", y)
-                    .set("x2", x + mm(3.0))
-                    .set("y2", y),
-            )
-            .add(
-                Line::new()
-                    .set("x1", x)
-                    .set("y1", y + height)
-                    .set("x2", x)
-                    .set("y2", y + height + mm(-2.0)),
-            )
-            .add(
-                Line::new()
-                    .set("x1", x)
-                    .set("y1", y + height)
-                    .set("x2", x + mm(3.0))
-                    .set("y2", y + height),
-            )
-            .add(
-                Line::new()
-                    .set("x1", x + width + mm(-3.0))
-                    .set("y1", y)
-                    .set("x2", x + width)
-                    .set("y2", y),
-            )
-            .add(
-                Line::new()
-                    .set("x1", x + width)
-                    .set("y1", y)
-                    .set("x2", x + width)
-                    .set("y2", y + mm(2.0)),
-            )
-            .add(
-                Line::new()
-                    .set("x1", x + width + mm(-3.0))
-                    .set("y1", y + height)
-                    .set("x2", x + width)
-                    .set("y2", y + height),
-            )
-            .add(
-                Line::new()
-                    .set("x1", x + width)
-                    .set("y1", y + height)
-                    .set("x2", x + width)
-                    .set("y2", y + mm(-2.0)),
-            );
+        let mut rectangle_group = Group::new();
+        rectangle_group = Self::draw_line(rectangle_group, x, y, x, y + mm(2.0));
+        rectangle_group = Self::draw_line(rectangle_group, x, y, x + mm(2.0), y);
+        rectangle_group = Self::draw_line(rectangle_group, x, y + height, x, y + height + mm(-2.0));
+        rectangle_group = Self::draw_line(rectangle_group, x, y + height, x + mm(3.0), y + height);
+        rectangle_group = Self::draw_line(rectangle_group, x + width + mm(-3.0), y, x + width, y);
+        rectangle_group = Self::draw_line(rectangle_group, x + width, y, x + width, y + mm(2.0));
+        rectangle_group = Self::draw_line(
+            rectangle_group,
+            x + width + mm(-3.0),
+            y + height,
+            x + width,
+            y + height,
+        );
+        rectangle_group = Self::draw_line(
+            rectangle_group,
+            x + width,
+            y + height,
+            x + width,
+            y + height + mm(-2.0),
+        );
         group.add(rectangle_group)
     }
 
@@ -973,7 +951,7 @@ impl QRBill {
                 .set("d", &data[1])
                 .set(
                     "style",
-                    "fill:black; fill-opacity:1; fill-rule:nonzero; stroke:none",
+                    "fill:black; fill-opacity:1; fill-rule:nonzero; stroke:none; margin: 0",
                 )
                 .set(
                     "transform",
