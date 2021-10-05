@@ -653,14 +653,25 @@ impl QRBill {
         }
     }
 
-    /// Writes the represented QRBill into an SVG file.
+    /// Writes the represented QR-Bill into an SVG file.
     ///
     /// * `full_page`: Makes the generated SVG the size of a full A4 page.
     pub fn write_to_file(
         &self,
-        name: impl AsRef<std::path::Path>,
+        path: impl AsRef<std::path::Path>,
         full_page: bool,
     ) -> Result<(), Error> {
+        let svg = self.create_svg(full_page)?;
+
+        std::fs::write(path, svg)?;
+
+        Ok(())
+    }
+
+    /// Returns a string containing the SVG representing the QR-Bill
+    ///
+    /// * `full_page`: Makes the generated SVG the size of a full A4 page.
+    pub fn create_svg(&self, full_page: bool) -> Result<String, Error> {
         // Make a properly sized document with a correct viewbox.
         let document = if full_page {
             Document::new()
@@ -694,9 +705,7 @@ impl QRBill {
 
         document = document.add(bill_group);
 
-        svg::save(name, &document)?;
-
-        Ok(())
+        Ok(document.to_string())
     }
 
     /// Renders to an A4 page, adding the bill in a group element.
