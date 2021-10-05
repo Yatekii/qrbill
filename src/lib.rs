@@ -759,7 +759,7 @@ impl QRBill {
     /// Draws the entire QR bill SVG image.
     fn draw_bill(&self) -> Result<Group, Error> {
         let margin = mm(5.0);
-        let payment_left = RECEIPT_WIDTH + mm(margin);
+        let payment_left = RECEIPT_WIDTH + margin;
         let payment_detail_left = payment_left + mm(46.0 + 5.0);
 
         let mut y_pos = mm(15.0);
