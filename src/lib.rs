@@ -1,7 +1,7 @@
 pub mod esr;
 pub mod iso11649;
 
-use std::fmt::{write, Write};
+use std::fmt::Write;
 
 use chrono::{Date, Utc};
 pub use iban::Iban;
@@ -18,25 +18,9 @@ use svg::{
 };
 use thousands::Separable;
 
-// import re
-// from datetime import date
-// from decimal import Decimal
-// from io import BytesIO
-// from itertools import chain
-// from pathlib import Path
-
-// import qrcode
-// import qrcode.image.svg
-// import svgwrite
-// from iso3166 import countries
-// from stdnum import iban, iso11649
-// from stdnum.ch import esr
-
 const IBAN_ALLOWED_COUNTRIES: [&str; 2] = ["CH", "LI"];
 const QR_IID_START: usize = 30000;
 const QR_IID_END: usize = 31999;
-// AMOUNT_REGEX = r'^\d{1,9}\.\d{2}$'
-// DATE_REGEX = r'(\d{4})-(\d{2})-(\d{2})'
 
 const MM_TO_UU: f64 = 3.543307;
 const BILL_HEIGHT: f64 = 105.0 * MM_TO_UU;
@@ -254,7 +238,7 @@ impl AddressExt for CombinedAddress {
             self.line2.clone(),
             "".into(),
             "".into(),
-            self.country.to_string(),
+            self.country.alpha2().to_string(),
         ]
     }
 
@@ -320,20 +304,24 @@ impl AddressExt for StructuredAddress {
             self.house_number.clone(),
             self.postal_code.clone(),
             self.city.clone(),
-            self.country.to_string(),
+            self.country.alpha2().to_string(),
         ]
     }
 
     fn as_paragraph(&self) -> Vec<String> {
-        let mut lines = vec![
+        vec![
             self.name.clone(),
             format!("{} {}", self.street, self.house_number),
-            format!("{}-{} {}", self.country, self.postal_code, self.city),
-        ];
-        lines
-            .iter()
-            .map(|line| textwrap::fill(line, MAX_CHARS_PAYMENT_LINE))
-            .collect()
+            format!(
+                "{}-{} {}",
+                self.country.alpha2(),
+                self.postal_code,
+                self.city
+            ),
+        ]
+        .into_iter()
+        .map(|line| textwrap::fill(&line, MAX_CHARS_PAYMENT_LINE))
+        .collect()
     }
 }
 
@@ -457,12 +445,30 @@ impl From<Style> for Value {
     }
 }
 
+trait StyleExt {
+    fn style(self, style: Style) -> Text;
+}
+
+impl StyleExt for Text {
+    fn style(mut self, style: Style) -> Text {
+        if let Some(font_size) = style.font_size {
+            self = self.set("font-size", font_size);
+        }
+        if let Some(font_family) = style.font_family {
+            self = self.set("font-family", font_family);
+        }
+        if let Some(font_weight) = style.font_weight {
+            self = self.set("font-weight", font_weight);
+        }
+
+        self
+    }
+}
+
 impl QRBill {
     const QR_TYPE: &'static str = "SPC";
     const VERSION: &'static str = "0200";
     const CODING: usize = 1;
-    const ALLOWED_CURRENCIES: [&'static str; 2] = ["CHF", "EUR"];
-    const REFERENCE_TYPES: [&'static str; 3] = ["QRR", "SCOR", "NON"];
 
     const TITLE_FONT: Style = Style {
         font_size: Some(12.0),
@@ -765,14 +771,14 @@ impl QRBill {
                     .add(svg::node::Text::new(self.label(&LABEL_RECEIPT)))
                     .set("x", margin)
                     .set("y", mm(10.0))
-                    .set("style", Self::TITLE_FONT),
+                    .style(Self::TITLE_FONT),
             )
             .add(
                 Text::new()
                     .add(svg::node::Text::new(self.label(&LABEL_PAYABLE_TO)))
                     .set("x", margin)
-                    .set("y", mm(y_pos))
-                    .set("style", Self::HEAD_FONT),
+                    .set("y", y_pos)
+                    .style(Self::HEAD_FONT),
             );
 
         y_pos += line_space;
@@ -781,8 +787,8 @@ impl QRBill {
             Text::new()
                 .add(svg::node::Text::new(self.account.to_string()))
                 .set("x", margin)
-                .set("y", mm(y_pos))
-                .set("style", Self::FONT),
+                .set("y", y_pos)
+                .style(Self::FONT),
         );
 
         y_pos += line_space;
@@ -792,8 +798,8 @@ impl QRBill {
                 Text::new()
                     .add(svg::node::Text::new(line))
                     .set("x", margin)
-                    .set("y", mm(y_pos))
-                    .set("style", Self::FONT),
+                    .set("y", y_pos)
+                    .style(Self::FONT),
             );
             y_pos += line_space;
         }
@@ -804,16 +810,16 @@ impl QRBill {
                 Text::new()
                     .add(svg::node::Text::new(self.label(&LABEL_REFERENCE)))
                     .set("x", margin)
-                    .set("y", mm(y_pos))
-                    .set("style", Self::HEAD_FONT),
+                    .set("y", y_pos)
+                    .style(Self::HEAD_FONT),
             );
             y_pos += line_space;
             group = group.add(
                 Text::new()
                     .add(svg::node::Text::new(self.reference.to_string()))
                     .set("x", margin)
-                    .set("y", mm(y_pos))
-                    .set("style", Self::FONT),
+                    .set("y", y_pos)
+                    .style(Self::FONT),
             );
             y_pos += line_space;
         }
@@ -822,10 +828,10 @@ impl QRBill {
 
         group = group.add(
             Text::new()
-                .add(svg::node::Text::new(self.label(&LABEL_PAYABLE_BY)))
+                .add(svg::node::Text::new(self.label(&LABEL_PAYABLE_BY_EXTENDED)))
                 .set("x", margin)
-                .set("y", mm(y_pos))
-                .set("style", Self::HEAD_FONT),
+                .set("y", y_pos)
+                .style(Self::HEAD_FONT),
         );
         y_pos += line_space;
 
@@ -835,8 +841,8 @@ impl QRBill {
                     Text::new()
                         .add(svg::node::Text::new(line))
                         .set("x", margin)
-                        .set("y", mm(y_pos))
-                        .set("style", Self::FONT),
+                        .set("y", y_pos)
+                        .style(Self::FONT),
                 );
                 y_pos += line_space;
             }
@@ -850,21 +856,21 @@ impl QRBill {
                 .add(svg::node::Text::new(self.label(&LABEL_CURRENCY)))
                 .set("x", margin)
                 .set("y", mm(72.0))
-                .set("style", Self::HEAD_FONT),
+                .style(Self::HEAD_FONT),
         );
         group = group.add(
             Text::new()
                 .add(svg::node::Text::new(self.label(&LABEL_AMOUNT)))
                 .set("x", margin + mm(12.0))
                 .set("y", mm(72.0))
-                .set("style", Self::HEAD_FONT),
+                .style(Self::HEAD_FONT),
         );
         group = group.add(
             Text::new()
                 .add(svg::node::Text::new(self.currency.to_string()))
                 .set("x", margin)
                 .set("y", mm(77.0))
-                .set("style", Self::FONT),
+                .style(Self::FONT),
         );
 
         if let Some(amount) = self.amount {
@@ -873,7 +879,7 @@ impl QRBill {
                     .add(svg::node::Text::new(format_amount(amount)))
                     .set("x", margin + mm(12.0))
                     .set("y", mm(77.0))
-                    .set("style", Self::FONT),
+                    .style(Self::FONT),
             );
         } else {
             group =
@@ -885,7 +891,8 @@ impl QRBill {
                 .add(svg::node::Text::new(self.label(&LABEL_ACCEPTANCE_POINT)))
                 .set("x", RECEIPT_WIDTH + margin * -1.0)
                 .set("y", mm(86.0))
-                .set("style", Self::HEAD_FONT),
+                .set("text-anchor", "end")
+                .style(Self::HEAD_FONT),
         );
 
         if self.top_line {
@@ -930,7 +937,7 @@ impl QRBill {
                 .add(svg::node::Text::new(self.label(&LABEL_PAYMENT_PART)))
                 .set("x", payment_left)
                 .set("y", mm(10.0))
-                .set("style", Self::TITLE_FONT),
+                .style(Self::TITLE_FONT),
         );
 
         let path_re = Regex::new(r"<path [^>]*>").unwrap();
@@ -981,7 +988,7 @@ impl QRBill {
                 .add(svg::node::Text::new(self.label(&LABEL_CURRENCY)))
                 .set("x", payment_left)
                 .set("y", mm(72.0))
-                .set("style", Self::HEAD_FONT),
+                .style(Self::HEAD_FONT),
         );
 
         group = group.add(
@@ -989,7 +996,7 @@ impl QRBill {
                 .add(svg::node::Text::new(self.label(&LABEL_AMOUNT)))
                 .set("x", payment_left + mm(12.0))
                 .set("y", mm(72.0))
-                .set("style", Self::HEAD_FONT),
+                .style(Self::HEAD_FONT),
         );
 
         group = group.add(
@@ -997,7 +1004,7 @@ impl QRBill {
                 .add(svg::node::Text::new(self.currency.to_string()))
                 .set("x", payment_left)
                 .set("y", mm(77.0))
-                .set("style", Self::FONT),
+                .style(Self::FONT),
         );
 
         if let Some(amount) = self.amount {
@@ -1006,7 +1013,7 @@ impl QRBill {
                     .add(svg::node::Text::new(format_amount(amount)))
                     .set("x", payment_left + mm(12.0))
                     .set("y", mm(77.0))
-                    .set("style", Self::FONT),
+                    .style(Self::FONT),
             );
         } else {
             group = Self::draw_blank_rectangle(
@@ -1035,7 +1042,7 @@ impl QRBill {
                 .add(svg::node::Text::new(self.account.to_string()))
                 .set("x", payment_detail_left + y_pos)
                 .set("y", mm(72.0))
-                .set("style", Self::HEAD_FONT),
+                .style(Self::HEAD_FONT),
         );
         y_pos += line_space;
 
@@ -1045,8 +1052,8 @@ impl QRBill {
                 Text::new()
                     .add(svg::node::Text::new(line))
                     .set("x", payment_detail_left)
-                    .set("y", mm(y_pos))
-                    .set("style", Self::FONT),
+                    .set("y", y_pos)
+                    .style(Self::FONT),
             );
             y_pos += line_space;
         }
@@ -1064,8 +1071,8 @@ impl QRBill {
                 Text::new()
                     .add(svg::node::Text::new(self.reference.to_string()))
                     .set("x", margin)
-                    .set("y", mm(y_pos))
-                    .set("style", Self::FONT),
+                    .set("y", y_pos)
+                    .style(Self::FONT),
             );
             y_pos += line_space;
         }
@@ -1100,21 +1107,12 @@ impl QRBill {
                     Text::new()
                         .add(svg::node::Text::new(line))
                         .set("x", payment_detail_left)
-                        .set("y", mm(y_pos))
-                        .set("style", Self::FONT),
+                        .set("y", y_pos)
+                        .style(Self::FONT),
                 );
                 y_pos += line_space;
             }
         }
-
-        group = group.add(
-            Text::new()
-                .add(svg::node::Text::new(self.label(&LABEL_PAYABLE_BY)))
-                .set("x", margin)
-                .set("y", mm(y_pos))
-                .set("style", Self::HEAD_FONT),
-        );
-        y_pos += line_space;
 
         // Add debtor info.
         if let Some(debtor) = &self.debtor {
@@ -1130,8 +1128,8 @@ impl QRBill {
                     Text::new()
                         .add(svg::node::Text::new(line))
                         .set("x", payment_detail_left)
-                        .set("y", mm(y_pos))
-                        .set("style", Self::FONT),
+                        .set("y", y_pos)
+                        .style(Self::FONT),
                 );
                 y_pos += line_space;
             }
@@ -1149,7 +1147,7 @@ impl QRBill {
         }
 
         // Add extra info if present.
-        if let Some(due_date) = &self.due_date {
+        if let Some(_due_date) = &self.due_date {
             group = Self::add_header(
                 group,
                 self.label(&LABEL_PAYABLE_BY_DATE),
@@ -1162,8 +1160,8 @@ impl QRBill {
                 Text::new()
                     .add(svg::node::Text::new(format_date(&self.due_date)))
                     .set("x", payment_detail_left)
-                    .set("y", mm(y_pos))
-                    .set("style", Self::FONT),
+                    .set("y", y_pos)
+                    .style(Self::FONT),
             );
             y_pos += line_space;
         }
@@ -1175,8 +1173,8 @@ impl QRBill {
                 Text::new()
                     .add(svg::node::Text::new(alternative_process))
                     .set("x", payment_left)
-                    .set("y", mm(y_pos))
-                    .set("style", Self::PROCESS_FONT),
+                    .set("y", y_pos)
+                    .style(Self::PROCESS_FONT),
             );
             y_pos += mm(2.2);
         }
@@ -1196,7 +1194,7 @@ impl QRBill {
                 .add(svg::node::Text::new(text.as_ref()))
                 .set("x", payment_detail_left)
                 .set("y", *y_pos)
-                .set("style", Self::HEAD_FONT),
+                .style(Self::HEAD_FONT),
         );
 
         *y_pos += line_space;

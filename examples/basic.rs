@@ -18,7 +18,7 @@ fn main() -> anyhow::Result<()> {
         reference: Reference::None,
         extra_infos: None,
         alternative_processes: vec![],
-        language: qrbill::Language::German,
+        language: qrbill::Language::English,
         top_line: true,
         payment_line: true,
         font_factor: 1.0,
