@@ -556,6 +556,7 @@ impl QRBill {
             .render()
             .dark_color(render::svg::Color("black"))
             .light_color(render::svg::Color("white"))
+            .quiet_zone(false)
             .build())
     }
 

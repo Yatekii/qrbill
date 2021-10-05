@@ -1,7 +1,7 @@
 [package]
 author = "Noah Hüsser <noah@huesser.dev>"
 name = "qrbill"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2018"
 readme = "README.md"
 repository = "https://github.com/Yatekii/qrbill"
