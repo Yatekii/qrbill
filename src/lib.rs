@@ -26,7 +26,6 @@ const MM_TO_UU: f64 = 3.543307;
 const BILL_HEIGHT_IN_MM: f64 = 105.0;
 const BILL_HEIGHT: f64 = BILL_HEIGHT_IN_MM * MM_TO_UU;
 const RECEIPT_WIDTH: f64 = 62.0 * MM_TO_UU; // mm
-const PAYMENT_WIDTH: f64 = 148.0 * MM_TO_UU; // mm
 const MAX_CHARS_PAYMENT_LINE: usize = 72;
 const MAX_CHARS_RECEIPT_LINE: usize = 38;
 const A4_WIDTH_IN_MM: f64 = 210.0;
@@ -89,13 +88,6 @@ const LABEL_ACCEPTANCE_POINT: Translation = Translation {
     de: "Annahmestelle",
     fr: "Point de dépôt",
     it: "Punto di accettazione",
-};
-
-const LABEL_SEPARATE_BEFORE_PAYING: Translation = Translation {
-    en: "Separate before paying in",
-    de: "Vor der Einzahlung abzutrennen",
-    fr: "A détacher avant le versement",
-    it: "Da staccare prima del versamento",
 };
 
 const LABEL_PAYABLE_BY: Translation = Translation {
@@ -701,9 +693,7 @@ impl QRBill {
         let mut bill_group = self.draw_bill()?;
 
         if full_page {
-            let (bg, text) = self.transform_to_full_page(bill_group);
-            bill_group = bg;
-            document = document.add(text);
+            bill_group = self.transform_to_full_page(bill_group);
         }
 
         document = document.add(bill_group);
@@ -714,24 +704,11 @@ impl QRBill {
     /// Renders to an A4 page, adding the bill in a group element.
     ///
     /// Also adds a note about separating the bill.
-    fn transform_to_full_page(&self, group: Group) -> (Group, Text) {
+    fn transform_to_full_page(&self, group: Group) -> Group {
         let y_offset = A4_HEIGHT - BILL_HEIGHT;
         let group = group.set("transform", format!("translate(0, {})", y_offset));
 
-        let x_center = A4_WIDTH / 2.0;
-        let y_pos = y_offset - mm(2.0);
-
-        (
-            group,
-            Text::new()
-                .add(svg::node::Text::new(
-                    self.label(&LABEL_SEPARATE_BEFORE_PAYING),
-                ))
-                .set("x", x_center)
-                .set("y", y_pos)
-                .set("text_anchor", "middle")
-                .set("font_style", "italic"),
-        )
+        group
     }
 
     /// Draws the entire QR bill SVG image.
@@ -877,11 +854,29 @@ impl QRBill {
                 Line::new()
                     .set("x1", 0.0)
                     .set("y1", mm(0.141))
-                    .set("x2", RECEIPT_WIDTH + PAYMENT_WIDTH)
+                    .set("x2", A4_WIDTH)
                     .set("y2", mm(0.141))
                     .set("stroke", "black")
                     .set("stroke-dasharray", "2 2")
                     .set("fill", "none"),
+            );
+
+            group = group.add(
+                Path::new()
+                    .set("d", SCISSORS_SVG_PATH)
+                    .set(
+                        "style",
+                        "fill:#000000; fill-opacity:1; fill-rule:nonzero; stroke:none",
+                    )
+                    .set("scale", 1.9)
+                    .set(
+                        "transform",
+                        format!(
+                            "scale(1.9) translate({}, {})",
+                            A4_WIDTH / 2.0 / 1.9,
+                            -mm(0.6)
+                        ),
+                    ),
             );
         }
 
