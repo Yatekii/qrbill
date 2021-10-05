@@ -1040,9 +1040,9 @@ impl QRBill {
         group = group.add(
             Text::new()
                 .add(svg::node::Text::new(self.account.to_string()))
-                .set("x", payment_detail_left + y_pos)
-                .set("y", mm(72.0))
-                .style(Self::HEAD_FONT),
+                .set("x", payment_detail_left)
+                .set("y", y_pos)
+                .style(Self::FONT),
         );
         y_pos += line_space;
 
