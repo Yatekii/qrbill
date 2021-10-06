@@ -531,7 +531,7 @@ impl QRBill {
         ];
         data.extend(self.creditor.data_list());
         data.extend(vec!["".into(); 7]);
-        data.extend([
+        data.extend(vec![
             self.amount.map(|v| format!("{:.2}", v)).unwrap_or_default(),
             self.currency.to_string(),
         ]);
@@ -542,7 +542,7 @@ impl QRBill {
                 .unwrap_or_else(|| vec!["".into(); 7]),
         );
         data.extend(self.reference.data_list());
-        data.extend([self.extra_infos.clone().unwrap_or_default()]);
+        data.extend(vec![self.extra_infos.clone().unwrap_or_default()]);
         data.push("EPD".to_string());
         data.extend(self.alternative_processes.clone());
 
