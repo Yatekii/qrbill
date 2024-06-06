@@ -1019,8 +1019,8 @@ impl QRBill {
                 line_space,
             );
             group = group.add(
-                    .set("x", margin)
                 Text::new(self.reference.to_string())
+                    .set("x", payment_detail_left)
                     .set("y", y_pos)
                     .style(Self::FONT),
             );
