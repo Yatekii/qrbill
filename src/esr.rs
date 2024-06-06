@@ -7,7 +7,7 @@ pub struct Esr {
 pub enum Error {
     #[error("Length must be between 5 and 25.")]
     InvalidLength,
-    #[error("Number must start with 'RF'.")]
+    #[error("ESR requires only digits")]
     InvalidFormat,
     #[error("Checksum is invalid.")]
     InvalidChecksum,
