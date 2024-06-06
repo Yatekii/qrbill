@@ -60,3 +60,28 @@ impl ToString for Esr {
                 .join(" ")
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn checksum_ok() {
+        let sample = String::from("24075237");
+        let res = String::from("1");
+        assert_eq!(checksum(sample).unwrap(), res)
+    }
+    #[test]
+    fn checksum_not_ok() {
+        let sample = String::from("24075277");
+        let res = String::from("1"); // Correct checksum = "2"
+        assert_ne!(checksum(sample).unwrap(), res)
+    }
+    #[test]
+    fn checksum_error() {
+        let sample = String::from("24075A37");
+        assert!(matches!(
+            checksum(sample).unwrap_err(),
+            Error::InvalidFormat
+        ))
+    }
+}
