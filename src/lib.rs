@@ -3,7 +3,7 @@ pub mod iso11649;
 
 use std::fmt::Write;
 
-use chrono::{Date, Utc};
+use chrono::NaiveDate;
 pub use iban::Iban;
 use iban::IbanLike;
 use isocountry::CountryCode;
@@ -341,7 +341,7 @@ pub struct QRBill {
     creditor: Address,
     amount: Option<f64>,
     currency: Currency,
-    due_date: Option<Date<Utc>>,
+    due_date: Option<NaiveDate>,
     debtor: Option<Address>,
     reference: Reference,
     /// Extra information aimed for the bill recipient.
@@ -361,7 +361,7 @@ pub struct QRBillOptions {
     pub creditor: Address,
     pub amount: Option<f64>,
     pub currency: Currency,
-    pub due_date: Option<Date<Utc>>,
+    pub due_date: Option<NaiveDate>,
     pub debtor: Option<Address>,
     pub reference: Reference,
     /// Extra information aimed for the bill recipient.
@@ -1157,7 +1157,7 @@ fn mm(value: f64) -> f64 {
 }
 
 /// Formats the due date according to spec.
-fn format_date(date: &Option<Date<Utc>>) -> String {
+fn format_date(date: &Option<NaiveDate>) -> String {
     date.map(|date| date.format("%d.%m.%Y").to_string())
         .unwrap_or_default()
 }
