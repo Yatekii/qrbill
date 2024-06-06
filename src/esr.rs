@@ -36,13 +36,13 @@ impl Esr {
     }
 }
 
-fn checksum(number: String) -> String {
+fn checksum(number: String) -> Result<String, Error> {
     let digits = [0, 9, 4, 6, 8, 2, 7, 1, 3, 5];
     let mut c = 0usize;
     for n in number.chars() {
-        c = digits[(n.to_digit(10).unwrap() as usize + c) % 10];
+        c = digits[(n.to_digit(10).ok_or(Error::InvalidFormat)? as usize + c) % 10];
     }
-    return ((10 - c) % 10).to_string();
+    Ok(((10 - c) % 10).to_string())
 }
 
 impl ToString for Esr {
