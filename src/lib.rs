@@ -707,7 +707,8 @@ impl QRBill {
     /// Also adds a note about separating the bill.
     fn transform_to_full_page(&self, group: Group) -> Group {
         let y_offset = A4_HEIGHT - BILL_HEIGHT;
-        group.set("transform", format!("translate(0, {})", y_offset))
+        let g = group.set("transform", format!("translate(0, {})", y_offset));
+        g
     }
 
     /// Draws the entire QR bill SVG image.
