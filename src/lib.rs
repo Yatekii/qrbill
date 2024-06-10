@@ -323,12 +323,13 @@ pub enum Currency {
     Euro,
 }
 
-impl ToString for Currency {
-    fn to_string(&self) -> String {
-        match self {
-            Currency::SwissFranc => "CHF".to_string(),
+impl Display for Currency {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
             Currency::Euro => "EUR".to_string(),
-        }
+            Currency::SwissFranc => "CHF".to_string(),
+        };
+        write!(f, "{}", s)
     }
 }
 
@@ -397,13 +398,14 @@ impl Reference {
     }
 }
 
-impl ToString for Reference {
-    fn to_string(&self) -> String {
-        match self {
+impl Display for Reference {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
             Reference::Qrr(esr) => esr.to_string(),
             Reference::Scor(reference) => reference.to_string(),
             Reference::None => String::new(),
-        }
+        };
+        write!(f, "{}", s)
     }
 }
 
@@ -711,7 +713,9 @@ impl QRBill {
     /// Renders to an A4 page, adding the bill in a group element.
     ///
     /// Also adds a note about separating the bill.
+    #[allow(clippy::let_and_return)]
     fn transform_to_full_page(&self, group: Group) -> Group {
+        // TODO: Work on the let and return
         let y_offset = A4_HEIGHT - BILL_HEIGHT;
         let g = group.set("transform", format!("translate(0, {})", y_offset));
         g
