@@ -174,6 +174,7 @@ pub enum Error {
     Scor(#[from] iso11649::Error),
 }
 
+#[derive(Debug)]
 pub enum Address {
     Cobined(CombinedAddress),
     Structured(StructuredAddress),
@@ -195,6 +196,7 @@ impl AddressExt for Address {
     }
 }
 
+#[derive(Debug)]
 pub struct CombinedAddress {
     name: String,
     line1: String,
@@ -242,6 +244,7 @@ impl AddressExt for CombinedAddress {
     }
 }
 
+#[derive(Debug)]
 pub struct StructuredAddress {
     pub name: String,
     pub street: String,
@@ -341,6 +344,7 @@ pub enum Language {
     Italian,
 }
 
+#[derive(Debug)]
 pub struct QRBill {
     account: Iban,
     creditor: Address,
