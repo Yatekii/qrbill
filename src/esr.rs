@@ -1,3 +1,5 @@
+const ESR_MAX_LENGTH: usize = 27;
+const ESR_MAX_NO_CHECKSUM: usize = 25;
 #[derive(Debug, Clone)]
 pub struct Esr {
     number: String,
@@ -14,28 +16,69 @@ pub enum Error {
 }
 
 impl Esr {
+    #[deprecated(
+        since = "0.2.4",
+        note = "use `try_without_checksum() or try_with_checksum()` instead"
+    )]
     pub fn try_new(number: String) -> Result<Self, Error> {
         let number = number.replace(' ', "").trim_start_matches('0').to_string();
-        if number.len() > 27 {
+        if number.len() > ESR_MAX_LENGTH {
             return Err(Error::InvalidLength);
         }
         if !number.chars().all(char::is_numeric) {
             return Err(Error::InvalidFormat);
         }
+        is_checksum_valid(&number)?;
 
-        if number[number.len() - 1..number.len()]
-            != checksum((number[..number.len() - 1]).to_string())?
-        {
-            return Err(Error::InvalidChecksum);
-        }
         Ok(Self { number })
     }
 
+    /// Instantiate a new [`Esr`] struct
+    /// The checksum should already be present at the end of the string!
+    /// If your reference doesn't have the checksum calculated use this method instead
+    /// ```
+    /// qrbill::esr::Esr::try_without_checksum("00000024072049".to_string());
+    /// ```
+    pub fn try_with_checksum(number: String) -> Result<Self, Error> {
+        let number = number.replace(' ', "").trim_start_matches('0').to_string();
+        if number.len() > ESR_MAX_LENGTH {
+            return Err(Error::InvalidLength);
+        }
+        is_checksum_valid(&number)?;
+
+        Ok(Self { number })
+    }
+
+    /// Instantiate a new [`Esr`] struct and calculate the checksum digit
+    /// The checksum should not be provided at the end of the string!
+    /// Provide the checksum digit at the end of the String
+    pub fn try_without_checksum(value: String) -> Result<Self, Error> {
+        let value = value.replace(' ', "").trim_start_matches('0').to_string();
+        if value.len() > ESR_MAX_NO_CHECKSUM {
+            return Err(Error::InvalidLength);
+        };
+        let new_checksum = checksum(value.clone())?;
+        let number = format!("{}{}", value, new_checksum);
+        is_checksum_valid(&number)?;
+
+        Ok(Self { number })
+    }
     pub fn to_raw(&self) -> String {
         self.number.clone()
     }
 }
 
+fn is_checksum_valid(number: &str) -> Result<(), Error> {
+    let check_digit = number[number.len() - 1..number.len()].to_string();
+    let sample = number[..number.len() - 1].to_string();
+    let res = checksum(sample)?;
+    if check_digit != res {
+        return Err(Error::InvalidChecksum);
+    };
+    Ok(())
+}
+
+/// Return the checksum digit as a `Result<String, Error>`
 fn checksum(number: String) -> Result<String, Error> {
     let digits = [0, 9, 4, 6, 8, 2, 7, 1, 3, 5];
     let mut c = 0usize;
