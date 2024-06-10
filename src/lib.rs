@@ -1,7 +1,7 @@
 pub mod esr;
 pub mod iso11649;
 
-use std::fmt::Write;
+use std::fmt::{Display, Formatter, Write};
 
 use chrono::NaiveDate;
 pub use iban::Iban;
@@ -168,6 +168,10 @@ pub enum Error {
     Qr(#[from] QrError),
     #[error("An IO error occured.")]
     Io(#[from] std::io::Error),
+    #[error("An ESR Reference error occured")]
+    Esr(#[from] esr::Error),
+    #[error("An QR Creditor Reference error occured")]
+    Scor(#[from] iso11649::Error),
 }
 
 pub enum Address {
@@ -480,17 +484,19 @@ impl QRBill {
 
     /// Creates a new QR-Bill which can be rendered onto an SVG.
     pub fn new(options: QRBillOptions) -> Result<Self, Error> {
-        if !IBAN_ALLOWED_COUNTRIES.contains(&&options.account.country_code()) {
+        if !IBAN_ALLOWED_COUNTRIES.contains(&options.account.country_code()) {
             return Err(Error::InvalidIban);
         }
-        let iban_iid = options.account.electronic_str()[4..9]
-            .parse()
-            .expect("This is a bug. Please report it.");
-        let _account_is_qriban = QR_IID_START <= iban_iid && iban_iid <= QR_IID_END;
 
-        // TODO validate ESR reference number
+        // TODO: validate ESR reference number
+        // Is it intentional ? The ESR is validated at the creation
 
         // TODO: validate QR IBAN / QRID matches.
+        match &options.reference {
+            Reference::Qrr(x) => x.validate_qriid(&options.account)?,
+            Reference::Scor(s) => s.validate_iid(&options.account)?,
+            Reference::None => {}
+        }
 
         if let Some(extra_infos) = options.extra_infos.as_ref() {
             if extra_infos.len() > 120 {

@@ -1,5 +1,11 @@
+use std::fmt::{Display, Formatter};
+
+use iban::{Iban, IbanLike};
+
 const ESR_MAX_LENGTH: usize = 27;
 const ESR_MAX_NO_CHECKSUM: usize = 25;
+use crate::{QR_IID_END, QR_IID_START};
+
 #[derive(Debug, Clone)]
 pub struct Esr {
     number: String,
@@ -13,6 +19,10 @@ pub enum Error {
     InvalidFormat,
     #[error("Checksum is invalid.")]
     InvalidChecksum,
+    #[error("The following IBAN is not a QR-IID")]
+    InvalidQriid,
+    #[error("Parsing error, this is a bug please report")]
+    ParseIntError(#[from] std::num::ParseIntError),
 }
 
 impl Esr {
@@ -62,6 +72,15 @@ impl Esr {
         is_checksum_valid(&number)?;
 
         Ok(Self { number })
+    }
+
+    /// Check is the provided Iban is ESR compatible
+    pub fn validate_qriid(&self, iban: &Iban) -> Result<(), Error> {
+        let iid: usize = iban.electronic_str()[4..9].parse()?;
+        if !(QR_IID_START..=QR_IID_END).contains(&iid) {
+            return Err(Error::InvalidQriid);
+        };
+        Ok(())
     }
 
     pub fn to_raw(&self) -> String {
