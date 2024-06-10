@@ -63,6 +63,7 @@ impl Esr {
 
         Ok(Self { number })
     }
+
     pub fn to_raw(&self) -> String {
         self.number.clone()
     }
@@ -88,11 +89,12 @@ fn checksum(number: String) -> Result<String, Error> {
     Ok(((10 - c) % 10).to_string())
 }
 
-impl ToString for Esr {
-    fn to_string(&self) -> String {
+/// Format the reference number as a String to "00 00000 00000 00000 00000 00000"
+impl Display for Esr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let number = "0".repeat(27) + &self.number;
         let number = &number[number.len() - 27..];
-        number[..2].to_string()
+        let number = number[..2].to_string()
             + " "
             + &number[2..]
                 .chars()
@@ -100,7 +102,8 @@ impl ToString for Esr {
                 .chunks(5)
                 .map(|c| c.iter().collect::<String>())
                 .collect::<Vec<String>>()
-                .join(" ")
+                .join(" ");
+        write!(f, "{}", number)
     }
 }
 
@@ -126,5 +129,23 @@ mod test {
             checksum(sample).unwrap_err(),
             Error::InvalidFormat
         ))
+    }
+    #[test]
+    fn try_new_error() {
+        let sample = String::from("24075277");
+        let esr = Esr::try_with_checksum(sample);
+        assert!(matches!(esr.unwrap_err(), Error::InvalidChecksum))
+    }
+    #[test]
+    fn try_from_ok() {
+        let sample = String::from("0000000024075277");
+        let esr = Esr::try_without_checksum(sample).unwrap();
+        assert_eq!(esr.to_raw(), "240752772".to_string())
+    }
+    #[test]
+    fn invalid_format() {
+        let sample = String::from("24075A37");
+        let esr = Esr::try_without_checksum(sample);
+        assert!(matches!(esr.unwrap_err(), Error::InvalidFormat))
     }
 }
