@@ -2,7 +2,7 @@
 author = "Noah Hüsser <noah@huesser.dev>"
 name = "qrbill"
 version = "0.2.3"
-edition = "2018"
+edition = "2021"
 readme = "README.md"
 repository = "https://github.com/Yatekii/qrbill"
 documentation = "https://docs.rs/qrbill/"
@@ -23,7 +23,9 @@ qrcode = "0.12.0"
 regex = "1.5.4"
 svg = "0.17.0"
 svg2pdf = "0.11.0"
+deunicode = "1.6.0"
 
 [dev-dependencies]
 anyhow = "1.0.44"
+pretty_assertions = "1.4.0"
 rstest = "0.21.0"
