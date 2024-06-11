@@ -12,12 +12,17 @@ pub enum Error {
     #[error("Checksum is invalid.")]
     InvalidChecksum,
     #[error("Contains invalid character: {0}")]
-    InvalidCharacter(char),
+    InvalidCharacters(String),
 }
 
 impl Iso11649 {
     pub fn try_new(number: &str) -> Result<Self, Error> {
         let number = number.replace([' ', '-', '.', ',', '/', ':'], "");
+        let invalid_characters: String = number
+            .chars()
+            .filter(|c| ! c.is_ascii_alphanumeric())
+            .collect();
+        if ! invalid_characters.is_empty() { return Err(Error::InvalidCharacters(invalid_characters)) }
         if number.len() < 5 || number.len() > 25 {
             return Err(Error::InvalidLength);
         }
@@ -27,10 +32,9 @@ impl Iso11649 {
 
         let valid = format!("{}{}", &number[4..], &number[..4])
             .chars()
-            .map(|v| i64::from_str_radix(&v.to_string(), 36)
-                 .map_err(|_| Error::InvalidCharacter(v)))
-            .collect::<Result<Vec<_>, _>>()?;
-        let valid = valid.into_iter()
+            .map(|v| {
+                i64::from_str_radix(&v.to_string(), 36).expect("This is a bug. Please report it.")
+            })
             .fold(String::new(), |a, b| format!("{}{}", a, b))
             .parse::<u128>()
             .expect("This is a bug. Please report it.")
@@ -73,7 +77,8 @@ mod tests {
     #[case("12345678901234567890123456" , InvalidLength)]
     #[case("RF12345"                    , InvalidChecksum)]
     #[case("RF12345"                    , InvalidChecksum)]
-    #[case("RF29fulaño"                 , InvalidCharacter('ñ'))]
+    #[case("RF29fulaño"                 , InvalidCharacters('ñ'.to_string()))]
+    #[case("RF29fülaño"                 , InvalidCharacters("üñ".to_string()))]
     fn test_failures(
         #[case] input: &str,
         #[case] expected: Error,
