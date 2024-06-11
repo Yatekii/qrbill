@@ -8,7 +8,7 @@ pub enum Error {
     #[error("Length must be between 5 and 25.")]
     InvalidLength,
     #[error("Number must start with 'RF'.")]
-    InvalidFormat,
+    MissingLeadingRF,
     #[error("Checksum is invalid.")]
     InvalidChecksum,
 }
@@ -20,7 +20,7 @@ impl Iso11649 {
             return Err(Error::InvalidLength);
         }
         if !number.starts_with("RF") {
-            return Err(Error::InvalidFormat);
+            return Err(Error::MissingLeadingRF);
         }
 
         let valid = format!("{}{}", &number[4..], &number[..4])
@@ -65,8 +65,8 @@ mod tests {
 
     #[rstest]
     #[case("1234"                       , InvalidLength)]
-    #[case("12345"                      , InvalidFormat)]
-    #[case("1234567890123456789012345"  , InvalidFormat)]
+    #[case("12345"                      , MissingLeadingRF)]
+    #[case("1234567890123456789012345"  , MissingLeadingRF)]
     #[case("12345678901234567890123456" , InvalidLength)]
     #[case("RF12345"                    , InvalidChecksum)]
     #[case("RF12345"                    , InvalidChecksum)]
