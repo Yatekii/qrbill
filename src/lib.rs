@@ -3,7 +3,7 @@ pub mod iso11649;
 
 use std::fmt::Write;
 
-use chrono::{Date, Utc};
+use chrono::NaiveDate;
 pub use iban::Iban;
 use iban::IbanLike;
 use isocountry::CountryCode;
@@ -341,7 +341,7 @@ pub struct QRBill {
     creditor: Address,
     amount: Option<f64>,
     currency: Currency,
-    due_date: Option<Date<Utc>>,
+    due_date: Option<NaiveDate>,
     debtor: Option<Address>,
     reference: Reference,
     /// Extra information aimed for the bill recipient.
@@ -361,7 +361,7 @@ pub struct QRBillOptions {
     pub creditor: Address,
     pub amount: Option<f64>,
     pub currency: Currency,
-    pub due_date: Option<Date<Utc>>,
+    pub due_date: Option<NaiveDate>,
     pub debtor: Option<Address>,
     pub reference: Reference,
     /// Extra information aimed for the bill recipient.
@@ -723,14 +723,14 @@ impl QRBill {
 
         let mut group = Group::new()
             .add(
-                Text::new()
+                Text::new("")
                     .add(svg::node::Text::new(self.label(&LABEL_RECEIPT)))
                     .set("x", margin)
                     .set("y", mm(10.0))
                     .style(Self::TITLE_FONT),
             )
             .add(
-                Text::new()
+                Text::new("")
                     .add(svg::node::Text::new(self.label(&LABEL_PAYABLE_TO)))
                     .set("x", margin)
                     .set("y", y_pos)
@@ -740,7 +740,7 @@ impl QRBill {
         y_pos += line_space;
 
         group = group.add(
-            Text::new()
+            Text::new("")
                 .add(svg::node::Text::new(self.account.to_string()))
                 .set("x", margin)
                 .set("y", y_pos)
@@ -751,7 +751,7 @@ impl QRBill {
 
         for line in self.creditor.as_paragraph(MAX_CHARS_RECEIPT_LINE) {
             group = group.add(
-                Text::new()
+                Text::new("")
                     .add(svg::node::Text::new(line))
                     .set("x", margin)
                     .set("y", y_pos)
@@ -763,7 +763,7 @@ impl QRBill {
         if !matches!(self.reference, Reference::None) {
             y_pos += mm(1.0);
             group = group.add(
-                Text::new()
+                Text::new("")
                     .add(svg::node::Text::new(self.label(&LABEL_REFERENCE)))
                     .set("x", margin)
                     .set("y", y_pos)
@@ -771,7 +771,7 @@ impl QRBill {
             );
             y_pos += line_space;
             group = group.add(
-                Text::new()
+                Text::new("")
                     .add(svg::node::Text::new(self.reference.to_string()))
                     .set("x", margin)
                     .set("y", y_pos)
@@ -783,7 +783,7 @@ impl QRBill {
         y_pos += mm(1.0);
 
         group = group.add(
-            Text::new()
+            Text::new("")
                 .add(svg::node::Text::new(self.label(&LABEL_PAYABLE_BY_EXTENDED)))
                 .set("x", margin)
                 .set("y", y_pos)
@@ -794,7 +794,7 @@ impl QRBill {
         if let Some(debtor) = &self.debtor {
             for line in debtor.as_paragraph(MAX_CHARS_RECEIPT_LINE) {
                 group = group.add(
-                    Text::new()
+                    Text::new("")
                         .add(svg::node::Text::new(line))
                         .set("x", margin)
                         .set("y", y_pos)
@@ -807,21 +807,21 @@ impl QRBill {
         }
 
         group = group.add(
-            Text::new()
+            Text::new("")
                 .add(svg::node::Text::new(self.label(&LABEL_CURRENCY)))
                 .set("x", margin)
                 .set("y", mm(72.0))
                 .style(Self::HEAD_FONT),
         );
         group = group.add(
-            Text::new()
+            Text::new("")
                 .add(svg::node::Text::new(self.label(&LABEL_AMOUNT)))
                 .set("x", margin + mm(12.0))
                 .set("y", mm(72.0))
                 .style(Self::HEAD_FONT),
         );
         group = group.add(
-            Text::new()
+            Text::new("")
                 .add(svg::node::Text::new(self.currency.to_string()))
                 .set("x", margin)
                 .set("y", mm(77.0))
@@ -830,7 +830,7 @@ impl QRBill {
 
         if let Some(amount) = self.amount {
             group = group.add(
-                Text::new()
+                Text::new("")
                     .add(svg::node::Text::new(format_amount(amount)))
                     .set("x", margin + mm(12.0))
                     .set("y", mm(77.0))
@@ -842,7 +842,7 @@ impl QRBill {
         }
 
         group = group.add(
-            Text::new()
+            Text::new("")
                 .add(svg::node::Text::new(self.label(&LABEL_ACCEPTANCE_POINT)))
                 .set("x", RECEIPT_WIDTH + margin * -1.0)
                 .set("y", mm(86.0))
@@ -906,7 +906,7 @@ impl QRBill {
         }
 
         group = group.add(
-            Text::new()
+            Text::new("")
                 .add(svg::node::Text::new(self.label(&LABEL_PAYMENT_PART)))
                 .set("x", payment_left)
                 .set("y", mm(10.0))
@@ -957,7 +957,7 @@ impl QRBill {
         group = Self::draw_swiss_cross(group, payment_left, 60.0, mm(45.8));
 
         group = group.add(
-            Text::new()
+            Text::new("")
                 .add(svg::node::Text::new(self.label(&LABEL_CURRENCY)))
                 .set("x", payment_left)
                 .set("y", mm(72.0))
@@ -965,7 +965,7 @@ impl QRBill {
         );
 
         group = group.add(
-            Text::new()
+            Text::new("")
                 .add(svg::node::Text::new(self.label(&LABEL_AMOUNT)))
                 .set("x", payment_left + mm(12.0))
                 .set("y", mm(72.0))
@@ -973,7 +973,7 @@ impl QRBill {
         );
 
         group = group.add(
-            Text::new()
+            Text::new("")
                 .add(svg::node::Text::new(self.currency.to_string()))
                 .set("x", payment_left)
                 .set("y", mm(77.0))
@@ -982,7 +982,7 @@ impl QRBill {
 
         if let Some(amount) = self.amount {
             group = group.add(
-                Text::new()
+                Text::new("")
                     .add(svg::node::Text::new(format_amount(amount)))
                     .set("x", payment_left + mm(12.0))
                     .set("y", mm(77.0))
@@ -1011,7 +1011,7 @@ impl QRBill {
         );
 
         group = group.add(
-            Text::new()
+            Text::new("")
                 .add(svg::node::Text::new(self.account.to_string()))
                 .set("x", payment_detail_left)
                 .set("y", y_pos)
@@ -1022,7 +1022,7 @@ impl QRBill {
         // Draw creditor info.
         for line in self.creditor.as_paragraph(MAX_CHARS_PAYMENT_LINE) {
             group = group.add(
-                Text::new()
+                Text::new("")
                     .add(svg::node::Text::new(line))
                     .set("x", payment_detail_left)
                     .set("y", y_pos)
@@ -1041,7 +1041,7 @@ impl QRBill {
                 line_space,
             );
             group = group.add(
-                Text::new()
+                Text::new("")
                     .add(svg::node::Text::new(self.reference.to_string()))
                     .set("x", margin)
                     .set("y", y_pos)
@@ -1077,7 +1077,7 @@ impl QRBill {
                     .collect::<Vec<String>>()
             }) {
                 group = group.add(
-                    Text::new()
+                    Text::new("")
                         .add(svg::node::Text::new(line))
                         .set("x", payment_detail_left)
                         .set("y", y_pos)
@@ -1098,7 +1098,7 @@ impl QRBill {
             );
             for line in debtor.as_paragraph(MAX_CHARS_PAYMENT_LINE) {
                 group = group.add(
-                    Text::new()
+                    Text::new("")
                         .add(svg::node::Text::new(line))
                         .set("x", payment_detail_left)
                         .set("y", y_pos)
@@ -1130,7 +1130,7 @@ impl QRBill {
             );
 
             group = group.add(
-                Text::new()
+                Text::new("")
                     .add(svg::node::Text::new(format_date(&self.due_date)))
                     .set("x", payment_detail_left)
                     .set("y", y_pos)
@@ -1143,7 +1143,7 @@ impl QRBill {
         y_pos += mm(94.0);
         for alternative_process in &self.alternative_processes {
             group = group.add(
-                Text::new()
+                Text::new("")
                     .add(svg::node::Text::new(alternative_process))
                     .set("x", payment_left)
                     .set("y", y_pos)
@@ -1163,7 +1163,7 @@ impl QRBill {
         line_space: f64,
     ) -> Group {
         let group = group.add(
-            Text::new()
+            Text::new("")
                 .add(svg::node::Text::new(text.as_ref()))
                 .set("x", payment_detail_left)
                 .set("y", *y_pos)
@@ -1183,7 +1183,7 @@ fn mm(value: f64) -> f64 {
 }
 
 /// Formats the due date according to spec.
-fn format_date(date: &Option<Date<Utc>>) -> String {
+fn format_date(date: &Option<NaiveDate>) -> String {
     date.map(|date| date.format("%d.%m.%Y").to_string())
         .unwrap_or_default()
 }
