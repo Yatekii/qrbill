@@ -15,13 +15,7 @@ pub enum Error {
 
 impl Iso11649 {
     pub fn try_new(number: String) -> Result<Self, Error> {
-        let number = number
-            .replace(" ", "")
-            .replace("-", "")
-            .replace(".", "")
-            .replace(",", "")
-            .replace("/", "")
-            .replace(":", "");
+        let number = number.replace([' ', '-', '.', ',', '/', ':'], "");
         if number.len() < 5 || number.len() > 25 {
             return Err(Error::InvalidLength);
         }
@@ -50,14 +44,15 @@ impl Iso11649 {
     }
 }
 
-impl ToString for Iso11649 {
-    fn to_string(&self) -> String {
-        self.number
+impl std::fmt::Display for Iso11649 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.number
             .chars()
             .collect::<Vec<char>>()
             .chunks(4)
             .map(|c| c.iter().collect::<String>())
             .collect::<Vec<String>>()
             .join(" ")
+        )
     }
 }

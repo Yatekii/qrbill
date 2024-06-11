@@ -15,7 +15,7 @@ pub enum Error {
 
 impl Esr {
     pub fn try_new(number: String) -> Result<Self, Error> {
-        let number = number.replace(" ", "").trim_start_matches("0").to_string();
+        let number = number.replace(' ', "").trim_start_matches('0').to_string();
         if number.len() > 27 {
             return Err(Error::InvalidLength);
         }
@@ -23,8 +23,8 @@ impl Esr {
             return Err(Error::InvalidFormat);
         }
 
-        if &number[number.len() - 1..number.len()]
-            != checksum((&number[..number.len() - 1]).to_string())
+        if number[number.len() - 1..number.len()]
+            != checksum((number[..number.len() - 1]).to_string())
         {
             return Err(Error::InvalidChecksum);
         }
@@ -42,21 +42,23 @@ fn checksum(number: String) -> String {
     for n in number.chars() {
         c = digits[(n.to_digit(10).unwrap() as usize + c) % 10];
     }
-    return ((10 - c) % 10).to_string();
+    ((10 - c) % 10).to_string()
 }
 
-impl ToString for Esr {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for Esr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let number = "0".repeat(27) + &self.number;
         let number = &number[number.len() - 27..];
-        number[..2].to_string()
-            + " "
-            + &number[2..]
+        write!(f, "{}",
+               number[..2].to_string()
+               + " "
+               + &number[2..]
                 .chars()
                 .collect::<Vec<char>>()
                 .chunks(5)
                 .map(|c| c.iter().collect::<String>())
                 .collect::<Vec<String>>()
                 .join(" ")
+        )
     }
 }

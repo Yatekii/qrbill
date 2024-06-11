@@ -319,12 +319,12 @@ pub enum Currency {
     Euro,
 }
 
-impl ToString for Currency {
-    fn to_string(&self) -> String {
-        match self {
+impl std::fmt::Display for Currency {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", match self {
             Currency::SwissFranc => "CHF".to_string(),
             Currency::Euro => "EUR".to_string(),
-        }
+        })
     }
 }
 
@@ -393,13 +393,13 @@ impl Reference {
     }
 }
 
-impl ToString for Reference {
-    fn to_string(&self) -> String {
-        match self {
+impl std::fmt::Display for Reference {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", match self {
             Reference::Qrr(esr) => esr.to_string(),
             Reference::Scor(reference) => reference.to_string(),
             Reference::None => String::new(),
-        }
+        })
     }
 }
 
@@ -480,13 +480,13 @@ impl QRBill {
 
     /// Creates a new QR-Bill which can be rendered onto an SVG.
     pub fn new(options: QRBillOptions) -> Result<Self, Error> {
-        if !IBAN_ALLOWED_COUNTRIES.contains(&&options.account.country_code()) {
+        if !IBAN_ALLOWED_COUNTRIES.contains(&options.account.country_code()) {
             return Err(Error::InvalidIban);
         }
         let iban_iid = options.account.electronic_str()[4..9]
             .parse()
             .expect("This is a bug. Please report it.");
-        let _account_is_qriban = QR_IID_START <= iban_iid && iban_iid <= QR_IID_END;
+        let _account_is_qriban = (QR_IID_START..=QR_IID_END).contains(&iban_iid);
 
         // TODO validate ESR reference number
 
@@ -707,9 +707,7 @@ impl QRBill {
     /// Also adds a note about separating the bill.
     fn transform_to_full_page(&self, group: Group) -> Group {
         let y_offset = A4_HEIGHT - BILL_HEIGHT;
-        let group = group.set("transform", format!("translate(0, {})", y_offset));
-
-        group
+        group.set("transform", format!("translate(0, {})", y_offset))
     }
 
     /// Draws the entire QR bill SVG image.
