@@ -11,6 +11,8 @@ pub enum Error {
     MissingLeadingRF,
     #[error("Checksum is invalid.")]
     InvalidChecksum,
+    #[error("Contains invalid character: {0}")]
+    InvalidCharacter(char),
 }
 
 impl Iso11649 {
@@ -25,9 +27,10 @@ impl Iso11649 {
 
         let valid = format!("{}{}", &number[4..], &number[..4])
             .chars()
-            .map(|v| {
-                i64::from_str_radix(&v.to_string(), 36).expect("This is a bug. Please rport it.")
-            })
+            .map(|v| i64::from_str_radix(&v.to_string(), 36)
+                 .map_err(|_| Error::InvalidCharacter(v)))
+            .collect::<Result<Vec<_>, _>>()?;
+        let valid = valid.into_iter()
             .fold(String::new(), |a, b| format!("{}{}", a, b))
             .parse::<u128>()
             .expect("This is a bug. Please report it.")
@@ -70,6 +73,7 @@ mod tests {
     #[case("12345678901234567890123456" , InvalidLength)]
     #[case("RF12345"                    , InvalidChecksum)]
     #[case("RF12345"                    , InvalidChecksum)]
+    #[case("RF29fulaño"                 , InvalidCharacter('ñ'))]
     fn test_failures(
         #[case] input: &str,
         #[case] expected: Error,
