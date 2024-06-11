@@ -654,7 +654,7 @@ impl QRBill {
     /// Writes the represented QR-Bill into an SVG file.
     ///
     /// * `full_page`: Makes the generated SVG the size of a full A4 page.
-    pub fn write_to_file(
+    pub fn write_svg_to_file(
         &self,
         path: impl AsRef<std::path::Path>,
         full_page: bool,
@@ -669,7 +669,7 @@ impl QRBill {
     /// Writes the represented QR-Bill into a PDF file.
     ///
     /// * `full_page`: Makes the generated SVG the size of a full A4 page.
-    pub fn write_to_pdf_file(
+    pub fn write_pdf_to_file(
         &self,
         path: impl AsRef<std::path::Path>,
         full_page: bool,

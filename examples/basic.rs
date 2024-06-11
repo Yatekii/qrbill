@@ -23,8 +23,8 @@ fn main() -> anyhow::Result<()> {
         payment_line: true,
     })?;
 
-    qrbill.write_to_file("test.svg", false)?;
-    qrbill.write_to_pdf_file("test.pdf", false)?;
+    qrbill.write_svg_to_file("test.svg", false)?;
+    qrbill.write_pdf_to_file("test.pdf", false)?;
 
     Ok(())
 }
