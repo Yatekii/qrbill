@@ -168,6 +168,8 @@ pub enum Error {
     Qr(#[from] QrError),
     #[error("An IO error occured.")]
     Io(#[from] std::io::Error),
+    #[error("An error occurred when generating PDF")]
+    Pdf(#[from] svg2pdf::usvg::Error),
 }
 
 pub enum Address {
@@ -652,7 +654,7 @@ impl QRBill {
     /// Writes the represented QR-Bill into an SVG file.
     ///
     /// * `full_page`: Makes the generated SVG the size of a full A4 page.
-    pub fn write_to_file(
+    pub fn write_svg_to_file(
         &self,
         path: impl AsRef<std::path::Path>,
         full_page: bool,
@@ -661,6 +663,24 @@ impl QRBill {
 
         std::fs::write(path, svg)?;
 
+        Ok(())
+    }
+
+    /// Writes the represented QR-Bill into a PDF file.
+    ///
+    /// * `full_page`: Makes the generated SVG the size of a full A4 page.
+    pub fn write_pdf_to_file(
+        &self,
+        path: impl AsRef<std::path::Path>,
+        full_page: bool,
+    ) -> Result<(), Error> {
+        let svg = self.create_svg(full_page)?;
+        let mut options = svg2pdf::usvg::Options::default();
+        options.fontdb_mut().load_system_fonts();
+        let tree = svg2pdf::usvg::Tree::from_str(&svg, &options)?;
+
+        let pdf = svg2pdf::to_pdf(&tree, svg2pdf::ConversionOptions::default(), svg2pdf::PageOptions::default());
+        std::fs::write(path, pdf)?;
         Ok(())
     }
 
