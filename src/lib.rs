@@ -480,7 +480,7 @@ impl QRBill {
 
     /// Creates a new QR-Bill which can be rendered onto an SVG.
     pub fn new(options: QRBillOptions) -> Result<Self, Error> {
-        if !IBAN_ALLOWED_COUNTRIES.contains(&&options.account.country_code()) {
+        if !IBAN_ALLOWED_COUNTRIES.contains(&options.account.country_code()) {
             return Err(Error::InvalidIban);
         }
         let iban_iid = options.account.electronic_str()[4..9]

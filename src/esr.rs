@@ -23,8 +23,8 @@ impl Esr {
             return Err(Error::InvalidFormat);
         }
 
-        if &number[number.len() - 1..number.len()]
-            != checksum((&number[..number.len() - 1]).to_string())
+        if number[number.len() - 1..number.len()]
+            != checksum((number[..number.len() - 1]).to_string())
         {
             return Err(Error::InvalidChecksum);
         }
