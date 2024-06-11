@@ -319,12 +319,12 @@ pub enum Currency {
     Euro,
 }
 
-impl ToString for Currency {
-    fn to_string(&self) -> String {
-        match self {
+impl std::fmt::Display for Currency {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", match self {
             Currency::SwissFranc => "CHF".to_string(),
             Currency::Euro => "EUR".to_string(),
-        }
+        })
     }
 }
 
@@ -393,13 +393,13 @@ impl Reference {
     }
 }
 
-impl ToString for Reference {
-    fn to_string(&self) -> String {
-        match self {
+impl std::fmt::Display for Reference {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", match self {
             Reference::Qrr(esr) => esr.to_string(),
             Reference::Scor(reference) => reference.to_string(),
             Reference::None => String::new(),
-        }
+        })
     }
 }
 

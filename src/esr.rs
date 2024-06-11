@@ -45,18 +45,20 @@ fn checksum(number: String) -> String {
     ((10 - c) % 10).to_string()
 }
 
-impl ToString for Esr {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for Esr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let number = "0".repeat(27) + &self.number;
         let number = &number[number.len() - 27..];
-        number[..2].to_string()
-            + " "
-            + &number[2..]
+        write!(f, "{}",
+               number[..2].to_string()
+               + " "
+               + &number[2..]
                 .chars()
                 .collect::<Vec<char>>()
                 .chunks(5)
                 .map(|c| c.iter().collect::<String>())
                 .collect::<Vec<String>>()
                 .join(" ")
+        )
     }
 }
