@@ -42,7 +42,7 @@ fn checksum(number: String) -> String {
     for n in number.chars() {
         c = digits[(n.to_digit(10).unwrap() as usize + c) % 10];
     }
-    return ((10 - c) % 10).to_string();
+    ((10 - c) % 10).to_string()
 }
 
 impl ToString for Esr {
