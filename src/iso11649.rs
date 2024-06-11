@@ -56,3 +56,39 @@ impl std::fmt::Display for Iso11649 {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+    use Error::*;
+
+    #[rstest]
+    #[case("1234"                       , InvalidLength)]
+    #[case("12345"                      , InvalidFormat)]
+    #[case("1234567890123456789012345"  , InvalidFormat)]
+    #[case("12345678901234567890123456" , InvalidLength)]
+    #[case("RF12345"                    , InvalidChecksum)]
+    #[case("RF12345"                    , InvalidChecksum)]
+    fn test_failures(
+        #[case] input: &str,
+        #[case] expected: Error,
+    ) {
+        assert_eq!(Iso11649::try_new(input), Err(expected))
+    }
+
+    #[rstest]
+    #[case("RF25a"      , "RF25a")]
+    #[case("RF95B"      , "RF95B")]
+    #[case("RF68C"      , "RF68C")]
+    #[case("RF29FULANO" , "RF29FULANO")]
+    #[case("RF29fulano" , "RF29fulano")]
+    fn test_successes(
+        #[case] input: &str,
+        #[case] expected: &str,
+    ) {
+        let expected = Iso11649 { number: expected.to_string() };
+        assert_eq!(Iso11649::try_new(input), Ok(expected))
+    }
+
+}
