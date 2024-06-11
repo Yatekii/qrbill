@@ -24,6 +24,7 @@ fn main() -> anyhow::Result<()> {
     })?;
 
     qrbill.write_to_file("test.svg", false)?;
+    qrbill.write_to_pdf_file("test.pdf", false)?;
 
     Ok(())
 }
