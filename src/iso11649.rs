@@ -16,12 +16,12 @@ pub enum Error {
 impl Iso11649 {
     pub fn try_new(number: String) -> Result<Self, Error> {
         let number = number
-            .replace(" ", "")
-            .replace("-", "")
-            .replace(".", "")
-            .replace(",", "")
-            .replace("/", "")
-            .replace(":", "");
+            .replace(' ', "")
+            .replace('-', "")
+            .replace('.', "")
+            .replace(',', "")
+            .replace('/', "")
+            .replace(':', "");
         if number.len() < 5 || number.len() > 25 {
             return Err(Error::InvalidLength);
         }

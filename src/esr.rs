@@ -15,7 +15,7 @@ pub enum Error {
 
 impl Esr {
     pub fn try_new(number: String) -> Result<Self, Error> {
-        let number = number.replace(" ", "").trim_start_matches("0").to_string();
+        let number = number.replace(' ', "").trim_start_matches('0').to_string();
         if number.len() > 27 {
             return Err(Error::InvalidLength);
         }
