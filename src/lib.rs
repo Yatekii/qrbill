@@ -486,7 +486,7 @@ impl QRBill {
         let iban_iid = options.account.electronic_str()[4..9]
             .parse()
             .expect("This is a bug. Please report it.");
-        let _account_is_qriban = QR_IID_START <= iban_iid && iban_iid <= QR_IID_END;
+        let _account_is_qriban = (QR_IID_START..=QR_IID_END).contains(&iban_iid);
 
         // TODO validate ESR reference number
 
