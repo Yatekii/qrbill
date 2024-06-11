@@ -1231,10 +1231,3 @@ fn format_amount(amount: f64) -> String {
 //             yield text[:MAX_CHARS_PAYMENT_LINE]
 //             text = text[MAX_CHARS_PAYMENT_LINE:]
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}
