@@ -19,9 +19,9 @@ iban_validate = "4.0.0"
 iso_currency = { version = "0.4.1", features = ["with-serde"] }
 thousands = "0.2.0"
 chrono = "0.4.19"
-svg = "0.10.0"
 qrcode = "0.12.0"
 regex = "1.5.4"
+svg = "0.17.0"
 
 [dev-dependencies]
 anyhow = "1.0.44"
