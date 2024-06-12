@@ -800,17 +800,16 @@ impl QRBill {
 
         y_pos += mm(1.0);
 
-        group = group.add(
-            Text::new("")
-                .add(svg::node::Text::new(self.label(&LABEL_PAYABLE_BY_EXTENDED)))
-                .set("x", margin)
-                .set("y", y_pos)
-                .style(Self::HEAD_FONT),
-        );
-        y_pos += line_space;
-
+        // Add debtor info.
         if let Some(debtor) = &self.debtor {
-            for line in debtor.as_paragraph(MAX_CHARS_RECEIPT_LINE) {
+            group = Self::add_header(
+                group,
+                self.label(&LABEL_PAYABLE_BY),
+                margin,
+                &mut y_pos,
+                line_space,
+            );
+            for line in debtor.as_paragraph(MAX_CHARS_PAYMENT_LINE) {
                 group = group.add(
                     Text::new("")
                         .add(svg::node::Text::new(line))
@@ -821,7 +820,15 @@ impl QRBill {
                 y_pos += line_space;
             }
         } else {
-            group = Self::draw_blank_rectangle(group, margin, y_pos, mm(52.0), mm(25.0));
+            group = Self::add_header(
+                group,
+                self.label(&LABEL_PAYABLE_BY_EXTENDED),
+                margin,
+                &mut y_pos,
+                line_space,
+            );
+            group =
+                Self::draw_blank_rectangle(group, margin, y_pos, mm(52.0), mm(20.0));
         }
 
         group = group.add(
