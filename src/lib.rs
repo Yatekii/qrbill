@@ -863,7 +863,7 @@ impl QRBill {
             );
         } else {
             group =
-                Self::draw_blank_rectangle(group, margin + mm(25.0), mm(75.0), mm(27.0), mm(11.0));
+                Self::draw_blank_rectangle(group, margin + mm(25.0), mm(70.6), mm(27.0), mm(11.0));
         }
 
         group = group.add(
