@@ -27,5 +27,9 @@ deunicode = "1.6.0"
 
 [dev-dependencies]
 anyhow = "1.0.44"
+bardecoder = "0.5.0"
+image = "0.24.0"
 pretty_assertions = "1.4.0"
+resvg = "0.42.0"
 rstest = "0.21.0"
+temp_testdir = "0.2.3"

@@ -76,7 +76,7 @@ impl std::ops::Rem<u8> for DigitsBase10 {
 mod tests {
     use super::*;
     use crate::chunked;
-    use rstest::rstest;
+    use rstest::*;
     use pretty_assertions::assert_eq;
 
     #[rstest]
@@ -175,6 +175,192 @@ mod tests {
         let parsed = crate::iso11649::Iso11649::new(input_without_checksum);
         assert_eq!(parsed.without_checksum(), input_without_checksum);
         assert_eq!(parsed.with_checksum()   , input);
+    }
+
+    struct Example { bill: crate::QRBill, expected_data: String }
+
+    #[fixture]
+    fn example1() -> Example {
+        use crate::{Address, Currency, Language, QRBill, QRBillOptions, Reference, StructuredAddress};
+
+        let iban = "CH8200788000C33011582";
+        let creditor_name = "Etat de Genève";
+        let creditor_street = "Avenue des Impôts";
+        let creditor_house_number = 42;
+        let creditor_postal_code = 1211;
+        let creditor_city = "Genève";
+        let creditor_country = isocountry::CountryCode::CHE;
+        let amount = 12345.67;
+
+        let creditor = Address::Structured(StructuredAddress {
+            name         : creditor_name.into(),
+            street       : creditor_street.into(),
+            house_number : creditor_house_number.to_string(),
+            postal_code  : creditor_postal_code.to_string(),
+            city         : creditor_city.into(),
+            country      : creditor_country,
+        });
+
+        let debtor_name = "Jean-Philippe Contribuable";
+        let debtor_street = "Prôméñądë dès Dïàçrîtiqêß";
+        let debtor_house_number = 12;
+        let debtor_postal_code = 3456;
+        let debtor_city = "Rochemouillé-sur-Lac";
+        let debtor_country = isocountry::CountryCode::CHE;
+        let extra_infos = "Extra infos";
+        // TODO due_date seems to have no effect on the data encoded in the QR code
+        let due_date = chrono::NaiveDate::from_ymd_opt(2024, 6, 30)
+            .expect("Hard-wired test date should parse");
+        let alternative1 = "Alternative process 1";
+        let alternative2 = "Another alternative process";
+
+        let debtor = Some(Address::Structured(StructuredAddress {
+            name: debtor_name.into(),
+            street: debtor_street.into(),
+            house_number: debtor_house_number.to_string(),
+            postal_code: debtor_postal_code.to_string(),
+            city: debtor_city.into(),
+            country: debtor_country,
+        }));
+
+        let reference_input = "ABCD 1234 AU";
+        let reference = Iso11649::new(reference_input);
+        let reference_coded = chunked(&reference.with_checksum());
+
+        let bill = QRBill::new(QRBillOptions {
+            account: iban.parse().expect("Hard-wired test IBAN should parse"),
+            creditor,
+            amount: Some(amount),
+            currency: Currency::SwissFranc,
+            due_date: Some(due_date),
+            debtor,
+            reference: Reference::Scor(reference),
+            extra_infos: Some(extra_infos.into()),
+            alternative_processes: vec![alternative1.into(), alternative2.into()],
+            language: Language::French,
+            top_line: true,
+            payment_line: true,
+        }).expect("Should be able to create test example QRBill");
+
+        // Write example out to local directory, for easier human inspection.
+        // Comment out when not used.
+        let path = "test-example1.pdf";
+        bill.write_pdf_to_file(path, false)
+            .expect("Should be able to write test example to {path}.");
+
+        let expected_data = format!("
+SPC
+0200
+1
+{iban}
+S
+{creditor_name}
+{creditor_street}
+{creditor_house_number}
+{creditor_postal_code}
+{creditor_city}
+CH
+
+
+
+
+
+
+
+{amount}
+CHF
+S
+{debtor_name}
+{debtor_street}
+{debtor_house_number}
+{debtor_postal_code}
+{debtor_city}
+CH
+SCOR
+{reference_coded}
+{extra_infos}
+EPD
+{alternative1}
+{alternative2}",
+
+        )[1..].to_string();
+
+        Example { bill, expected_data  }
+
+    }
+
+    #[rstest]
+    fn qr_data(example1: Example) {
+        let Example { bill, expected_data } = example1;
+        compare_original_with_derived(&bill.qr_data(), &expected_data, false);
+    }
+
+    //#[rstest] // TODO fix test qr_data_via_in_memory_image
+    fn todo_qr_data_via_in_memory_image(example1: Example) {
+        let Example { bill, expected_data } = example1;
+        let pixmap = render_svg_data_to_png(&bill.qr_image().unwrap())
+            .unwrap();
+
+        let image = image::io::Reader::new(std::io::Cursor::new(pixmap.data()))
+            .with_guessed_format()
+            .unwrap()
+            .decode()
+            .unwrap();
+
+        let recovered_data = decode_single_qr_code_in_image(image);
+
+        compare_original_with_derived(&recovered_data, &expected_data, false);
+    }
+
+    #[rstest]
+    fn qr_data_via_saved_image(example1: Example) {
+        let Example { bill, expected_data } = example1;
+
+        // `temp_dir` will be deleted at the end of the test:
+        // Append `.permanent()` to keep it around.
+        let temp_dir = temp_testdir::TempDir::default();
+        let png_path = temp_dir.join("test_output.png");
+
+        render_svg_data_to_png(&bill.qr_image().unwrap())
+            .unwrap()
+            .save_png(&png_path)
+            .expect("Failed to save pixmap to PNG");
+        let recovered_data = decode_single_qr_code_in_image_at_path(png_path);
+
+        compare_original_with_derived(&recovered_data, &expected_data, false);
+    }
+
+    fn compare_original_with_derived(original: &str, derived: &str, show_detail: bool) {
+        let  derived_without_returns =  derived.replace('\r', "");
+        let original_without_returns = original.replace('\r', "");
+        if show_detail {
+            for (i, (a,b)) in original_without_returns.chars().zip(derived_without_returns.chars()).enumerate() {
+                println!("{i:03} {a:2} - {b:2}");
+                assert_eq!(a,b);
+            }
+        }
+        assert_eq!(original_without_returns, derived_without_returns);
+    }
+
+    fn render_svg_data_to_png(svg_data: &str) -> Option<resvg::tiny_skia::Pixmap> {
+        use resvg::tiny_skia::{Transform, Pixmap};
+        use resvg::usvg::{Options, Tree};
+        let opt = Options::default();
+        let rtree = Tree::from_str(svg_data, &opt).ok()?;
+        let pixmap_size = rtree.size();
+        let mut pixmap = Pixmap::new(pixmap_size.width() as u32, pixmap_size.height() as u32)?;
+        resvg::render(&rtree, Transform::identity(), &mut pixmap.as_mut());
+        Some(pixmap)
+    }
+
+    fn decode_single_qr_code_in_image_at_path(path: impl AsRef<std::path::Path>) -> String {
+        decode_single_qr_code_in_image(image::open(path).unwrap())
+    }
+
+    fn decode_single_qr_code_in_image(image: image::DynamicImage) -> String {
+        let decoder = bardecoder::default_decoder();
+        let results = decoder.decode(&image);
+        results.into_iter().next().unwrap().unwrap().replace('\r', "")
     }
 
 }
