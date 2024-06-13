@@ -738,6 +738,7 @@ impl QRBill {
 
         let mut y_pos = mm(15.0);
         let line_space = mm(3.5);
+        let section_space = mm(1.5);
 
         let mut group = Group::new()
             .add(
@@ -779,7 +780,7 @@ impl QRBill {
         }
 
         if !matches!(self.reference, Reference::None) {
-            y_pos += mm(1.0);
+            y_pos += section_space;
             group = group.add(
                 Text::new("")
                     .add(svg::node::Text::new(self.label(&LABEL_REFERENCE)))
@@ -798,7 +799,7 @@ impl QRBill {
             y_pos += line_space;
         }
 
-        y_pos += mm(1.0);
+        y_pos += section_space;
 
         // Add debtor info.
         if let Some(debtor) = &self.debtor {
@@ -1058,6 +1059,7 @@ impl QRBill {
 
         // Draw reference info.
         if !matches!(self.reference, Reference::None) {
+            y_pos += section_space;
             group = Self::add_header(
                 group,
                 self.label(&LABEL_REFERENCE),
@@ -1077,6 +1079,7 @@ impl QRBill {
 
         // Add extra info if present.
         if let Some(extra_info) = &self.extra_infos {
+            y_pos += section_space;
             group = Self::add_header(
                 group,
                 self.label(&LABEL_ADDITIONAL_INFORMATION),
@@ -1112,6 +1115,8 @@ impl QRBill {
             }
         }
 
+        y_pos += section_space;
+
         // Add debtor info.
         if let Some(debtor) = &self.debtor {
             group = Self::add_header(
@@ -1143,6 +1148,8 @@ impl QRBill {
                 Self::draw_blank_rectangle(group, payment_detail_left, y_pos, mm(65.0), mm(25.0));
             y_pos += mm(28.0);
         }
+
+        y_pos += section_space;
 
         // Add extra info if present.
         if let Some(_due_date) = &self.due_date {
