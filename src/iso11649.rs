@@ -38,7 +38,7 @@ impl Iso11649 {
                 i64::from_str_radix(&v.to_string(), 36).expect("This is a bug. Please report it.")
             })
             .fold(String::new(), |a, b| format!("{}{}", a, b))
-            .parse::<u64>()
+            .parse::<u128>()
             .expect("This is a bug. Please report it.")
             % 97
             == 1;

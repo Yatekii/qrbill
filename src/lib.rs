@@ -172,6 +172,8 @@ pub enum Error {
     Esr(#[from] esr::Error),
     #[error("An QR Creditor Reference error occured")]
     Scor(#[from] iso11649::Error),
+    #[error("An error occurred when generating PDF")]
+    Pdf(#[from] svg2pdf::usvg::Error),
 }
 
 #[derive(Debug)]
@@ -664,7 +666,7 @@ impl QRBill {
     /// Writes the represented QR-Bill into an SVG file.
     ///
     /// * `full_page`: Makes the generated SVG the size of a full A4 page.
-    pub fn write_to_file(
+    pub fn write_svg_to_file(
         &self,
         path: impl AsRef<std::path::Path>,
         full_page: bool,
@@ -673,6 +675,24 @@ impl QRBill {
 
         std::fs::write(path, svg)?;
 
+        Ok(())
+    }
+
+    /// Writes the represented QR-Bill into a PDF file.
+    ///
+    /// * `full_page`: Makes the generated SVG the size of a full A4 page.
+    pub fn write_pdf_to_file(
+        &self,
+        path: impl AsRef<std::path::Path>,
+        full_page: bool,
+    ) -> Result<(), Error> {
+        let svg = self.create_svg(full_page)?;
+        let mut options = svg2pdf::usvg::Options::default();
+        options.fontdb_mut().load_system_fonts();
+        let tree = svg2pdf::usvg::Tree::from_str(&svg, &options)?;
+
+        let pdf = svg2pdf::to_pdf(&tree, svg2pdf::ConversionOptions::default(), svg2pdf::PageOptions::default());
+        std::fs::write(path, pdf)?;
         Ok(())
     }
 
@@ -721,8 +741,7 @@ impl QRBill {
     fn transform_to_full_page(&self, group: Group) -> Group {
         // TODO: Work on the let and return
         let y_offset = A4_HEIGHT - BILL_HEIGHT;
-        let g = group.set("transform", format!("translate(0, {})", y_offset));
-        g
+        group.set("transform", format!("translate(0, {})", y_offset))
     }
 
     /// Draws the entire QR bill SVG image.
@@ -733,16 +752,19 @@ impl QRBill {
 
         let mut y_pos = mm(15.0);
         let line_space = mm(3.5);
+        let section_space = mm(1.5);
 
         let mut group = Group::new()
             .add(
-                Text::new(self.label(&LABEL_RECEIPT))
+                Text::new("")
+                    .add(svg::node::Text::new(self.label(&LABEL_RECEIPT)))
                     .set("x", margin)
                     .set("y", mm(10.0))
                     .style(Self::TITLE_FONT),
             )
             .add(
-                Text::new(self.label(&LABEL_PAYABLE_TO))
+                Text::new("")
+                    .add(svg::node::Text::new(self.label(&LABEL_PAYABLE_TO)))
                     .set("x", margin)
                     .set("y", y_pos)
                     .style(Self::HEAD_FONT),
@@ -751,7 +773,8 @@ impl QRBill {
         y_pos += line_space;
 
         group = group.add(
-            Text::new(self.account.to_string())
+            Text::new("")
+                .add(svg::node::Text::new(self.account.to_string()))
                 .set("x", margin)
                 .set("y", y_pos)
                 .style(Self::FONT),
@@ -761,7 +784,8 @@ impl QRBill {
 
         for line in self.creditor.as_paragraph(MAX_CHARS_RECEIPT_LINE) {
             group = group.add(
-                Text::new(line)
+                Text::new("")
+                    .add(svg::node::Text::new(line))
                     .set("x", margin)
                     .set("y", y_pos)
                     .style(Self::FONT),
@@ -770,16 +794,18 @@ impl QRBill {
         }
 
         if !matches!(self.reference, Reference::None) {
-            y_pos += mm(1.0);
+            y_pos += section_space;
             group = group.add(
-                Text::new(self.label(&LABEL_REFERENCE))
+                Text::new("")
+                    .add(svg::node::Text::new(self.label(&LABEL_REFERENCE)))
                     .set("x", margin)
                     .set("y", y_pos)
                     .style(Self::HEAD_FONT),
             );
             y_pos += line_space;
             group = group.add(
-                Text::new(self.reference.to_string())
+                Text::new("")
+                    .add(svg::node::Text::new(self.reference.to_string()))
                     .set("x", margin)
                     .set("y", y_pos)
                     .style(Self::FONT),
@@ -787,18 +813,18 @@ impl QRBill {
             y_pos += line_space;
         }
 
-        y_pos += mm(1.0);
+        y_pos += section_space;
 
-        group = group.add(
-            Text::new(self.label(&LABEL_PAYABLE_BY_EXTENDED))
-                .set("x", margin)
-                .set("y", y_pos)
-                .style(Self::HEAD_FONT),
-        );
-        y_pos += line_space;
-
+        // Add debtor info.
         if let Some(debtor) = &self.debtor {
-            for line in debtor.as_paragraph(MAX_CHARS_RECEIPT_LINE) {
+            group = Self::add_header(
+                group,
+                self.label(&LABEL_PAYABLE_BY),
+                margin,
+                &mut y_pos,
+                line_space,
+            );
+            for line in debtor.as_paragraph(MAX_CHARS_PAYMENT_LINE) {
                 group = group.add(
                     Text::new(line)
                         .set("x", margin)
@@ -808,7 +834,15 @@ impl QRBill {
                 y_pos += line_space;
             }
         } else {
-            group = Self::draw_blank_rectangle(group, margin, y_pos, mm(52.0), mm(25.0));
+            group = Self::add_header(
+                group,
+                self.label(&LABEL_PAYABLE_BY_EXTENDED),
+                margin,
+                &mut y_pos,
+                line_space,
+            );
+            group =
+                Self::draw_blank_rectangle(group, margin, y_pos, mm(52.0), mm(20.0));
         }
 
         group = group.add(
@@ -839,7 +873,7 @@ impl QRBill {
             );
         } else {
             group =
-                Self::draw_blank_rectangle(group, margin + mm(25.0), mm(75.0), mm(27.0), mm(11.0));
+                Self::draw_blank_rectangle(group, margin + mm(25.0), mm(70.6), mm(27.0), mm(11.0));
         }
 
         group = group.add(
@@ -1026,6 +1060,7 @@ impl QRBill {
 
         // Draw reference info.
         if !matches!(self.reference, Reference::None) {
+            y_pos += section_space;
             group = Self::add_header(
                 group,
                 self.label(&LABEL_REFERENCE),
@@ -1044,6 +1079,7 @@ impl QRBill {
 
         // Add extra info if present.
         if let Some(extra_info) = &self.extra_infos {
+            y_pos += section_space;
             group = Self::add_header(
                 group,
                 self.label(&LABEL_ADDITIONAL_INFORMATION),
@@ -1078,6 +1114,8 @@ impl QRBill {
             }
         }
 
+        y_pos += section_space;
+
         // Add debtor info.
         if let Some(debtor) = &self.debtor {
             group = Self::add_header(
@@ -1108,6 +1146,8 @@ impl QRBill {
                 Self::draw_blank_rectangle(group, payment_detail_left, y_pos, mm(65.0), mm(25.0));
             y_pos += mm(28.0);
         }
+
+        y_pos += section_space;
 
         // Add extra info if present.
         if let Some(_due_date) = &self.due_date {
