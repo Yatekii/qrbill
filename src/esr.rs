@@ -44,6 +44,7 @@ impl Esr {
     }
 
     /// Instantiate a new [`Esr`] struct
+    ///
     /// The checksum should already be present at the end of the string!
     /// If your reference doesn't have the checksum calculated use this method instead
     /// ```
