@@ -46,10 +46,8 @@ impl Esr {
     /// Instantiate a new [`Esr`] struct
     ///
     /// The checksum should already be present at the end of the string!
-    /// If your reference doesn't have the checksum calculated use this method instead
-    /// ```
-    /// qrbill::esr::Esr::try_without_checksum("00000024072049".to_string());
-    /// ```
+    ///
+    /// If your reference doesn't have the checksum calculated use [`Esr::try_without_checksum`] instead.
     pub fn try_with_checksum(number: String) -> Result<Self, Error> {
         let number = number.replace(' ', "").trim_start_matches('0').to_string();
         if number.len() > ESR_MAX_LENGTH {
