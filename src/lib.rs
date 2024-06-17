@@ -691,7 +691,11 @@ impl QRBill {
         options.fontdb_mut().load_system_fonts();
         let tree = svg2pdf::usvg::Tree::from_str(&svg, &options)?;
 
-        let pdf = svg2pdf::to_pdf(&tree, svg2pdf::ConversionOptions::default(), svg2pdf::PageOptions::default());
+        let pdf = svg2pdf::to_pdf(
+            &tree,
+            svg2pdf::ConversionOptions::default(),
+            svg2pdf::PageOptions::default(),
+        );
         std::fs::write(path, pdf)?;
         Ok(())
     }
@@ -841,8 +845,7 @@ impl QRBill {
                 &mut y_pos,
                 line_space,
             );
-            group =
-                Self::draw_blank_rectangle(group, margin, y_pos, mm(52.0), mm(20.0));
+            group = Self::draw_blank_rectangle(group, margin, y_pos, mm(52.0), mm(20.0));
         }
 
         group = group.add(
