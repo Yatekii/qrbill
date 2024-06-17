@@ -19,8 +19,8 @@ pub enum Error {
     InvalidFormat,
     #[error("Checksum is invalid.")]
     InvalidChecksum,
-    #[error("The following IBAN is not a QR-IID")]
-    InvalidQriid,
+    #[error("IBAN provided ({found:?}) is not ESR compatible (see QRIID)")]
+    InvalidQriid { found: String },
     #[error("Parsing error, this is a bug please report")]
     ParseIntError(#[from] std::num::ParseIntError),
 }
@@ -78,7 +78,9 @@ impl Esr {
     pub fn validate_qriid(&self, iban: &Iban) -> Result<(), Error> {
         let iid: usize = iban.electronic_str()[4..9].parse()?;
         if !(QR_IID_START..=QR_IID_END).contains(&iid) {
-            return Err(Error::InvalidQriid);
+            return Err(Error::InvalidQriid {
+                found: iban.to_string(),
+            });
         };
         Ok(())
     }

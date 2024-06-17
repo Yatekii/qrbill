@@ -16,8 +16,8 @@ pub enum Error {
     InvalidFormat,
     #[error("Checksum is invalid.")]
     InvalidChecksum,
-    #[error("IBAN provided is not SCOR compatible (see IID)")]
-    InvalidIid,
+    #[error("IBAN provided ({found:?}) is not SCOR compatible (see IID)")]
+    InvalidIid { found: String },
     #[error("Parsing error, this is a bug please report")]
     ParseIntError(#[from] std::num::ParseIntError),
 }
@@ -52,7 +52,9 @@ impl Iso11649 {
     pub fn validate_iid(&self, iban: &Iban) -> Result<(), Error> {
         let iid: usize = iban.electronic_str()[4..9].parse()?;
         if (QR_IID_START..=QR_IID_END).contains(&iid) {
-            return Err(Error::InvalidIid);
+            return Err(Error::InvalidIid {
+                found: iban.to_string(),
+            });
         };
         Ok(())
     }
