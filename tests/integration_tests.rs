@@ -49,7 +49,7 @@ fn new_qr_err() -> Result<(), Error> {
     let q = QRBill::new(q);
     assert!(matches!(
         q.unwrap_err(),
-        Error::Esr(esr::Error::InvalidQriid)
+        Error::Esr(esr::Error::InvalidQriid { found: _ })
     ));
     Ok(())
 }
