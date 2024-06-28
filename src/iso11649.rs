@@ -1,8 +1,5 @@
 use std::fmt::{Display, Formatter};
 
-use crate::{QR_IID_END, QR_IID_START};
-use iban::{Iban, IbanLike};
-
 #[derive(Debug, Clone)]
 pub struct Iso11649 {
     number: String,
@@ -16,8 +13,6 @@ pub enum Error {
     InvalidFormat,
     #[error("Checksum is invalid.")]
     InvalidChecksum,
-    #[error("IBAN provided ({found:?}) is not SCOR compatible (see IID)")]
-    InvalidIid { found: String },
     #[error("Parsing error, this is a bug please report")]
     ParseIntError(#[from] std::num::ParseIntError),
 }
@@ -46,17 +41,6 @@ impl Iso11649 {
             return Err(Error::InvalidChecksum);
         }
         Ok(Self { number })
-    }
-
-    /// Check if the provided Iban is SCOR compatible
-    pub fn validate_iid(&self, iban: &Iban) -> Result<(), Error> {
-        let iid: usize = iban.electronic_str()[4..9].parse()?;
-        if (QR_IID_START..=QR_IID_END).contains(&iid) {
-            return Err(Error::InvalidIid {
-                found: iban.to_string(),
-            });
-        };
-        Ok(())
     }
 
     pub fn to_raw(&self) -> String {

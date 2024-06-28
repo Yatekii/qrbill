@@ -141,6 +141,40 @@ trait AddressExt {
 
     fn as_paragraph(&self, max_width: usize) -> Vec<String>;
 }
+#[derive(Debug)]
+enum IbanType {
+    Qriid,
+    Iid,
+}
+impl IbanType {
+    fn try_valid_reference(&self, reference: &Reference, iban_str: &str) -> Result<(), Error> {
+        match self {
+            Self::Qriid => match reference {
+                Reference::Qrr(_) => Ok(()),
+                _ => Err(Error::InvalidQriid(iban_str.into())),
+            },
+            Self::Iid => match reference {
+                Reference::Qrr(_) => Err(Error::InvalidIid(iban_str.into())),
+                _ => Ok(()),
+            },
+        }
+    }
+}
+trait IbanKind {
+    fn iban_kind<'a>(&self) -> Result<&'a IbanType, Error>;
+}
+impl IbanKind for Iban {
+    fn iban_kind<'a>(&self) -> Result<&'a IbanType, Error> {
+        let iid: usize = self.electronic_str()[4..9]
+            .parse()
+            .expect("This is a bug, please report it");
+        if (QR_IID_START..=QR_IID_END).contains(&iid) {
+            Ok(&IbanType::Qriid)
+        } else {
+            Ok(&IbanType::Iid)
+        }
+    }
+}
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -158,6 +192,12 @@ pub enum Error {
     City,
     #[error("The IBAN needs to start with CH or LI.")]
     InvalidIban,
+    #[error("The ESR reference is missing and is mandatory for QRIID IbanType")]
+    EsrMandatory,
+    #[error("IBAN provided ({0:?}) is not SCOR compatible (see IID)")]
+    InvalidIid(String),
+    #[error("IBAN provided ({0:?}) is not ESR compatible (see QRIID)")]
+    InvalidQriid(String),
     #[error("Extra infos can be no more than 140 characters.")]
     ExtraInfos,
     #[error(
@@ -496,15 +536,8 @@ impl QRBill {
             return Err(Error::InvalidIban);
         }
 
-        // TODO: validate ESR reference number
-        // Is it intentional ? The ESR is validated at the creation
-
-        // TODO: validate QR IBAN / QRID matches.
-        match &options.reference {
-            Reference::Qrr(x) => x.validate_qriid(&options.account)?,
-            Reference::Scor(s) => s.validate_iid(&options.account)?,
-            Reference::None => {}
-        }
+        let iban_kind = options.account.iban_kind()?;
+        iban_kind.try_valid_reference(&options.reference, options.account.electronic_str())?;
 
         if let Some(extra_infos) = options.extra_infos.as_ref() {
             if extra_infos.len() > 120 {
@@ -1223,16 +1256,39 @@ fn format_amount(amount: f64) -> String {
     format!("{:.2}", amount).separate_with_spaces()
 }
 
-// def wrap_infos(infos) {
-//     for text in infos:
-//         while(text) {
-//             yield text[:MAX_CHARS_PAYMENT_LINE]
-//             text = text[MAX_CHARS_PAYMENT_LINE:]
-
 #[cfg(test)]
 mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+    use super::*;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case("Way too long string", 0, Error::Name)]
+    #[case("Way too long string", 1, Error::Street)]
+    #[case("Way too long string", 2, Error::HouseNumber)]
+    #[case("Way too long string", 3, Error::PostalCode)]
+    #[case("Way too long string", 4, Error::City)]
+    fn structured_addr_errs(
+        #[case] new_data: &str,
+        #[case] x: usize,
+        #[case] _erro: Error,
+    ) -> anyhow::Result<()> {
+        let mut data: Vec<String> = vec![
+            "name".into(),
+            "street".into(),
+            "house_number".into(),
+            "postal".into(),
+            "city".into(),
+        ];
+        data[x] = new_data.repeat(5);
+        let address = StructuredAddress::new(
+            data[0].clone(),
+            data[1].clone(),
+            data[2].clone(),
+            data[3].clone(),
+            data[4].clone(),
+            CountryCode::CHE,
+        );
+        assert!(matches!(address.unwrap_err(), _erro));
+        Ok(())
     }
 }

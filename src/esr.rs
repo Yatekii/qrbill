@@ -1,17 +1,14 @@
 use std::fmt::{Display, Formatter};
 
-use iban::{Iban, IbanLike};
-
 const ESR_MAX_LENGTH: usize = 27;
 const ESR_MAX_NO_CHECKSUM: usize = 25;
-use crate::{QR_IID_END, QR_IID_START};
 
 #[derive(Debug, Clone)]
 pub struct Esr {
     number: String,
 }
 
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Debug, PartialEq)]
 pub enum Error {
     #[error("Length must be between 5 and 25.")]
     InvalidLength,
@@ -19,8 +16,6 @@ pub enum Error {
     InvalidFormat,
     #[error("Checksum is invalid.")]
     InvalidChecksum,
-    #[error("IBAN provided ({found:?}) is not ESR compatible (see QRIID)")]
-    InvalidQriid { found: String },
     #[error("Parsing error, this is a bug please report")]
     ParseIntError(#[from] std::num::ParseIntError),
 }
@@ -50,7 +45,7 @@ impl Esr {
     /// If your reference doesn't have the checksum calculated use [`Esr::try_without_checksum`] instead.
     pub fn try_with_checksum(number: String) -> Result<Self, Error> {
         let number = number.replace(' ', "").trim_start_matches('0').to_string();
-        if number.len() > ESR_MAX_LENGTH {
+        if number.len() > ESR_MAX_LENGTH || number.len() < 5 {
             return Err(Error::InvalidLength);
         }
         is_checksum_valid(&number)?;
@@ -63,7 +58,7 @@ impl Esr {
     /// Provide the checksum digit at the end of the String
     pub fn try_without_checksum(value: String) -> Result<Self, Error> {
         let value = value.replace(' ', "").trim_start_matches('0').to_string();
-        if value.len() > ESR_MAX_NO_CHECKSUM {
+        if value.len() > ESR_MAX_NO_CHECKSUM || value.len() < 5 {
             return Err(Error::InvalidLength);
         };
         let new_checksum = checksum(value.clone())?;
@@ -71,17 +66,6 @@ impl Esr {
         is_checksum_valid(&number)?;
 
         Ok(Self { number })
-    }
-
-    /// Check is the provided Iban is ESR compatible
-    pub fn validate_qriid(&self, iban: &Iban) -> Result<(), Error> {
-        let iid: usize = iban.electronic_str()[4..9].parse()?;
-        if !(QR_IID_START..=QR_IID_END).contains(&iid) {
-            return Err(Error::InvalidQriid {
-                found: iban.to_string(),
-            });
-        };
-        Ok(())
     }
 
     pub fn to_raw(&self) -> String {
@@ -129,43 +113,40 @@ impl Display for Esr {
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    #[test]
-    fn checksum_ok() {
-        let sample = String::from("24075237");
-        let res = String::from("1");
-        assert_eq!(checksum(sample).unwrap(), res)
+    use super::{Error, *};
+    use rstest::rstest;
+    #[rstest]
+    #[case("24075237", "1")]
+    #[case("24075277", "2")]
+    #[case("240", "4")]
+    fn checksum_correct(#[case] sample: &str, #[case] res: &str) -> () {
+        let s = String::from(sample);
+        let r = String::from(res);
+        assert_eq!(checksum(s).unwrap(), r)
     }
-    #[test]
-    fn checksum_not_ok() {
-        let sample = String::from("24075277");
-        let res = String::from("1"); // Correct checksum = "2"
-        assert_ne!(checksum(sample).unwrap(), res)
+    #[rstest]
+    #[case("24075237", Error::InvalidChecksum)]
+    #[case("24075A37", Error::InvalidFormat)]
+    #[case("2404", Error::InvalidLength)]
+    #[case("2100000000000458423122404546", Error::InvalidLength)]
+    fn try_new_errors(#[case] sample: &str, #[case] erro: Error) -> () {
+        let s = String::from(sample);
+        let esr = Esr::try_with_checksum(s);
+        assert_eq!(esr.unwrap_err(), erro)
     }
-    #[test]
-    fn checksum_error() {
-        let sample = String::from("24075A37");
-        assert!(matches!(
-            checksum(sample).unwrap_err(),
-            Error::InvalidFormat
-        ))
-    }
-    #[test]
-    fn try_new_error() {
-        let sample = String::from("24075277");
-        let esr = Esr::try_with_checksum(sample);
-        assert!(matches!(esr.unwrap_err(), Error::InvalidChecksum))
-    }
-    #[test]
-    fn try_from_ok() {
-        let sample = String::from("0000000024075277");
-        let esr = Esr::try_without_checksum(sample).unwrap();
-        assert_eq!(esr.to_raw(), "240752772".to_string())
-    }
-    #[test]
-    fn invalid_format() {
-        let sample = String::from("24075A37");
-        let esr = Esr::try_without_checksum(sample);
-        assert!(matches!(esr.unwrap_err(), Error::InvalidFormat))
+    #[rstest]
+    #[case("0000000024075277", false)]
+    #[case("240752371", true)]
+    #[case("240752772", true)]
+    #[case("210000000000045842312240456", true)]
+    fn try_from_ok(#[case] sample: &str, #[case] with_checksum: bool) -> () {
+        let sample = String::from(sample);
+        if with_checksum {
+            let esr = Esr::try_with_checksum(sample);
+            assert!(esr.is_ok())
+        } else {
+            let esr = Esr::try_without_checksum(sample);
+            assert!(esr.is_ok())
+        }
     }
 }
