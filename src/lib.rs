@@ -3,10 +3,10 @@ pub mod iso11649;
 
 use std::fmt::{Display, Formatter, Write};
 
-use chrono::NaiveDate;
+pub use chrono::NaiveDate;
 pub use iban::Iban;
-use iban::IbanLike;
-use isocountry::CountryCode;
+pub use iban::IbanLike;
+pub use isocountry::CountryCode;
 use qrcode::{render, types::QrError, QrCode};
 use regex::Regex;
 use svg::{
@@ -248,12 +248,12 @@ impl AddressExt for CombinedAddress {
 
 #[derive(Debug)]
 pub struct StructuredAddress {
-    pub name: String,
-    pub street: String,
-    pub house_number: String,
-    pub postal_code: String,
-    pub city: String,
-    pub country: CountryCode,
+    name: String,
+    street: String,
+    house_number: String,
+    postal_code: String,
+    city: String,
+    country: CountryCode,
 }
 
 impl StructuredAddress {
