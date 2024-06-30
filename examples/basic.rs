@@ -17,7 +17,7 @@ fn main() -> anyhow::Result<()> {
         amount: Some(419.68), // or None,
         currency: qrbill::Currency::SwissFranc,
         due_date: Some(NaiveDate::parse_from_str("2032.10.25", "%Y.%m.%d")?),
-        debtor: Some(Address::Cobined(CombinedAddress::new(
+        debtor: Some(Address::Combined(CombinedAddress::new(
             "Jean-Eude".into(),
             "Rue du paiement 56B".into(),
             "1700 Fribourg".into(),

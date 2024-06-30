@@ -35,7 +35,7 @@ fn qr_opts() -> anyhow::Result<QRBillOptions> {
         amount: Some(876.69),
         currency: Currency::SwissFranc,
         due_date: NaiveDate::from_ymd_opt(2024, 8, 29),
-        debtor: Some(Address::Cobined(combined_addr())),
+        debtor: Some(Address::Combined(combined_addr())),
         reference: Reference::Qrr(Esr::try_with_checksum(ESR_WITH_CHECKSUM.to_string())?),
         extra_infos: None,
         alternative_processes: vec![],

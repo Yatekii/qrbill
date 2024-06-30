@@ -218,21 +218,21 @@ pub enum Error {
 
 #[derive(Debug)]
 pub enum Address {
-    Cobined(CombinedAddress),
+    Combined(CombinedAddress),
     Structured(StructuredAddress),
 }
 
 impl AddressExt for Address {
     fn data_list(&self) -> Vec<String> {
         match self {
-            Address::Cobined(a) => a.data_list(),
+            Address::Combined(a) => a.data_list(),
             Address::Structured(a) => a.data_list(),
         }
     }
 
     fn as_paragraph(&self, max_width: usize) -> Vec<String> {
         match self {
-            Address::Cobined(a) => a.as_paragraph(max_width),
+            Address::Combined(a) => a.as_paragraph(max_width),
             Address::Structured(a) => a.as_paragraph(max_width),
         }
     }
