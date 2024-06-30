@@ -1,12 +1,12 @@
 pub mod esr;
 pub mod iso11649;
 
-use std::fmt::Write;
+use std::fmt::{Display, Formatter, Write};
 
-use chrono::NaiveDate;
+pub use chrono::NaiveDate;
 pub use iban::Iban;
-use iban::IbanLike;
-use isocountry::CountryCode;
+pub use iban::IbanLike;
+pub use isocountry::CountryCode;
 use qrcode::{render, types::QrError, QrCode};
 use regex::Regex;
 use svg::{
@@ -141,6 +141,40 @@ trait AddressExt {
 
     fn as_paragraph(&self, max_width: usize) -> Vec<String>;
 }
+#[derive(Debug)]
+enum IbanType {
+    Qriid,
+    Iid,
+}
+impl IbanType {
+    fn try_valid_reference(&self, reference: &Reference, iban_str: &str) -> Result<(), Error> {
+        match self {
+            Self::Qriid => match reference {
+                Reference::Qrr(_) => Ok(()),
+                _ => Err(Error::InvalidQriid(iban_str.into())),
+            },
+            Self::Iid => match reference {
+                Reference::Qrr(_) => Err(Error::InvalidIid(iban_str.into())),
+                _ => Ok(()),
+            },
+        }
+    }
+}
+trait IbanKind {
+    fn iban_kind<'a>(&self) -> Result<&'a IbanType, Error>;
+}
+impl IbanKind for Iban {
+    fn iban_kind<'a>(&self) -> Result<&'a IbanType, Error> {
+        let iid: usize = self.electronic_str()[4..9]
+            .parse()
+            .expect("This is a bug, please report it");
+        if (QR_IID_START..=QR_IID_END).contains(&iid) {
+            Ok(&IbanType::Qriid)
+        } else {
+            Ok(&IbanType::Iid)
+        }
+    }
+}
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -158,6 +192,12 @@ pub enum Error {
     City,
     #[error("The IBAN needs to start with CH or LI.")]
     InvalidIban,
+    #[error("The ESR reference is missing and is mandatory for QRIID IbanType")]
+    EsrMandatory,
+    #[error("IBAN provided ({0:?}) is not SCOR compatible (see IID)")]
+    InvalidIid(String),
+    #[error("IBAN provided ({0:?}) is not ESR compatible (see QRIID)")]
+    InvalidQriid(String),
     #[error("Extra infos can be no more than 140 characters.")]
     ExtraInfos,
     #[error(
@@ -168,31 +208,37 @@ pub enum Error {
     Qr(#[from] QrError),
     #[error("An IO error occured.")]
     Io(#[from] std::io::Error),
+    #[error("An ESR Reference error occured")]
+    Esr(#[from] esr::Error),
+    #[error("An QR Creditor Reference error occured")]
+    Scor(#[from] iso11649::Error),
     #[error("An error occurred when generating PDF")]
     Pdf(#[from] svg2pdf::usvg::Error),
 }
 
+#[derive(Debug)]
 pub enum Address {
-    Cobined(CombinedAddress),
+    Combined(CombinedAddress),
     Structured(StructuredAddress),
 }
 
 impl AddressExt for Address {
     fn data_list(&self) -> Vec<String> {
         match self {
-            Address::Cobined(a) => a.data_list(),
+            Address::Combined(a) => a.data_list(),
             Address::Structured(a) => a.data_list(),
         }
     }
 
     fn as_paragraph(&self, max_width: usize) -> Vec<String> {
         match self {
-            Address::Cobined(a) => a.as_paragraph(max_width),
+            Address::Combined(a) => a.as_paragraph(max_width),
             Address::Structured(a) => a.as_paragraph(max_width),
         }
     }
 }
 
+#[derive(Debug)]
 pub struct CombinedAddress {
     name: String,
     line1: String,
@@ -240,13 +286,14 @@ impl AddressExt for CombinedAddress {
     }
 }
 
+#[derive(Debug)]
 pub struct StructuredAddress {
-    pub name: String,
-    pub street: String,
-    pub house_number: String,
-    pub postal_code: String,
-    pub city: String,
-    pub country: CountryCode,
+    name: String,
+    street: String,
+    house_number: String,
+    postal_code: String,
+    city: String,
+    country: CountryCode,
 }
 
 impl StructuredAddress {
@@ -321,12 +368,13 @@ pub enum Currency {
     Euro,
 }
 
-impl std::fmt::Display for Currency {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", match self {
-            Currency::SwissFranc => "CHF".to_string(),
+impl Display for Currency {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
             Currency::Euro => "EUR".to_string(),
-        })
+            Currency::SwissFranc => "CHF".to_string(),
+        };
+        write!(f, "{}", s)
     }
 }
 
@@ -338,6 +386,7 @@ pub enum Language {
     Italian,
 }
 
+#[derive(Debug)]
 pub struct QRBill {
     account: Iban,
     creditor: Address,
@@ -395,13 +444,14 @@ impl Reference {
     }
 }
 
-impl std::fmt::Display for Reference {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", match self {
+impl Display for Reference {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
             Reference::Qrr(esr) => esr.to_string(),
             Reference::Scor(reference) => reference.to_string(),
             Reference::None => String::new(),
-        })
+        };
+        write!(f, "{}", s)
     }
 }
 
@@ -485,14 +535,9 @@ impl QRBill {
         if !IBAN_ALLOWED_COUNTRIES.contains(&options.account.country_code()) {
             return Err(Error::InvalidIban);
         }
-        let iban_iid = options.account.electronic_str()[4..9]
-            .parse()
-            .expect("This is a bug. Please report it.");
-        let _account_is_qriban = (QR_IID_START..=QR_IID_END).contains(&iban_iid);
 
-        // TODO validate ESR reference number
-
-        // TODO: validate QR IBAN / QRID matches.
+        let iban_kind = options.account.iban_kind()?;
+        iban_kind.try_valid_reference(&options.reference, options.account.electronic_str())?;
 
         if let Some(extra_infos) = options.extra_infos.as_ref() {
             if extra_infos.len() > 120 {
@@ -679,7 +724,11 @@ impl QRBill {
         options.fontdb_mut().load_system_fonts();
         let tree = svg2pdf::usvg::Tree::from_str(&svg, &options)?;
 
-        let pdf = svg2pdf::to_pdf(&tree, svg2pdf::ConversionOptions::default(), svg2pdf::PageOptions::default());
+        let pdf = svg2pdf::to_pdf(
+            &tree,
+            svg2pdf::ConversionOptions::default(),
+            svg2pdf::PageOptions::default(),
+        );
         std::fs::write(path, pdf)?;
         Ok(())
     }
@@ -725,7 +774,9 @@ impl QRBill {
     /// Renders to an A4 page, adding the bill in a group element.
     ///
     /// Also adds a note about separating the bill.
+    #[allow(clippy::let_and_return)]
     fn transform_to_full_page(&self, group: Group) -> Group {
+        // TODO: Work on the let and return
         let y_offset = A4_HEIGHT - BILL_HEIGHT;
         group.set("transform", format!("translate(0, {})", y_offset))
     }
@@ -812,8 +863,7 @@ impl QRBill {
             );
             for line in debtor.as_paragraph(MAX_CHARS_PAYMENT_LINE) {
                 group = group.add(
-                    Text::new("")
-                        .add(svg::node::Text::new(line))
+                    Text::new(line)
                         .set("x", margin)
                         .set("y", y_pos)
                         .style(Self::FONT),
@@ -828,27 +878,23 @@ impl QRBill {
                 &mut y_pos,
                 line_space,
             );
-            group =
-                Self::draw_blank_rectangle(group, margin, y_pos, mm(52.0), mm(20.0));
+            group = Self::draw_blank_rectangle(group, margin, y_pos, mm(52.0), mm(20.0));
         }
 
         group = group.add(
-            Text::new("")
-                .add(svg::node::Text::new(self.label(&LABEL_CURRENCY)))
+            Text::new(self.label(&LABEL_CURRENCY))
                 .set("x", margin)
                 .set("y", mm(72.0))
                 .style(Self::HEAD_FONT),
         );
         group = group.add(
-            Text::new("")
-                .add(svg::node::Text::new(self.label(&LABEL_AMOUNT)))
+            Text::new(self.label(&LABEL_AMOUNT))
                 .set("x", margin + mm(12.0))
                 .set("y", mm(72.0))
                 .style(Self::HEAD_FONT),
         );
         group = group.add(
-            Text::new("")
-                .add(svg::node::Text::new(self.currency.to_string()))
+            Text::new(self.currency.to_string())
                 .set("x", margin)
                 .set("y", mm(77.0))
                 .style(Self::FONT),
@@ -856,8 +902,7 @@ impl QRBill {
 
         if let Some(amount) = self.amount {
             group = group.add(
-                Text::new("")
-                    .add(svg::node::Text::new(format_amount(amount)))
+                Text::new(format_amount(amount))
                     .set("x", margin + mm(12.0))
                     .set("y", mm(77.0))
                     .style(Self::FONT),
@@ -868,8 +913,7 @@ impl QRBill {
         }
 
         group = group.add(
-            Text::new("")
-                .add(svg::node::Text::new(self.label(&LABEL_ACCEPTANCE_POINT)))
+            Text::new(self.label(&LABEL_ACCEPTANCE_POINT))
                 .set("x", RECEIPT_WIDTH + margin * -1.0)
                 .set("y", mm(86.0))
                 .set("text-anchor", "end")
@@ -932,8 +976,7 @@ impl QRBill {
         }
 
         group = group.add(
-            Text::new("")
-                .add(svg::node::Text::new(self.label(&LABEL_PAYMENT_PART)))
+            Text::new(self.label(&LABEL_PAYMENT_PART))
                 .set("x", payment_left)
                 .set("y", mm(10.0))
                 .style(Self::TITLE_FONT),
@@ -983,24 +1026,21 @@ impl QRBill {
         group = Self::draw_swiss_cross(group, payment_left, 60.0, mm(45.8));
 
         group = group.add(
-            Text::new("")
-                .add(svg::node::Text::new(self.label(&LABEL_CURRENCY)))
+            Text::new(self.label(&LABEL_CURRENCY))
                 .set("x", payment_left)
                 .set("y", mm(72.0))
                 .style(Self::HEAD_FONT),
         );
 
         group = group.add(
-            Text::new("")
-                .add(svg::node::Text::new(self.label(&LABEL_AMOUNT)))
+            Text::new(self.label(&LABEL_AMOUNT))
                 .set("x", payment_left + mm(12.0))
                 .set("y", mm(72.0))
                 .style(Self::HEAD_FONT),
         );
 
         group = group.add(
-            Text::new("")
-                .add(svg::node::Text::new(self.currency.to_string()))
+            Text::new(self.currency.to_string())
                 .set("x", payment_left)
                 .set("y", mm(77.0))
                 .style(Self::FONT),
@@ -1008,8 +1048,7 @@ impl QRBill {
 
         if let Some(amount) = self.amount {
             group = group.add(
-                Text::new("")
-                    .add(svg::node::Text::new(format_amount(amount)))
+                Text::new(format_amount(amount))
                     .set("x", payment_left + mm(12.0))
                     .set("y", mm(77.0))
                     .style(Self::FONT),
@@ -1037,8 +1076,7 @@ impl QRBill {
         );
 
         group = group.add(
-            Text::new("")
-                .add(svg::node::Text::new(self.account.to_string()))
+            Text::new(self.account.to_string())
                 .set("x", payment_detail_left)
                 .set("y", y_pos)
                 .style(Self::FONT),
@@ -1048,8 +1086,7 @@ impl QRBill {
         // Draw creditor info.
         for line in self.creditor.as_paragraph(MAX_CHARS_PAYMENT_LINE) {
             group = group.add(
-                Text::new("")
-                    .add(svg::node::Text::new(line))
+                Text::new(line)
                     .set("x", payment_detail_left)
                     .set("y", y_pos)
                     .style(Self::FONT),
@@ -1068,8 +1105,7 @@ impl QRBill {
                 line_space,
             );
             group = group.add(
-                Text::new("")
-                    .add(svg::node::Text::new(self.reference.to_string()))
+                Text::new(self.reference.to_string())
                     .set("x", payment_detail_left)
                     .set("y", y_pos)
                     .style(Self::FONT),
@@ -1105,8 +1141,7 @@ impl QRBill {
                     .collect::<Vec<String>>()
             }) {
                 group = group.add(
-                    Text::new("")
-                        .add(svg::node::Text::new(line))
+                    Text::new(line)
                         .set("x", payment_detail_left)
                         .set("y", y_pos)
                         .style(Self::FONT),
@@ -1128,8 +1163,7 @@ impl QRBill {
             );
             for line in debtor.as_paragraph(MAX_CHARS_PAYMENT_LINE) {
                 group = group.add(
-                    Text::new("")
-                        .add(svg::node::Text::new(line))
+                    Text::new(line)
                         .set("x", payment_detail_left)
                         .set("y", y_pos)
                         .style(Self::FONT),
@@ -1162,8 +1196,7 @@ impl QRBill {
             );
 
             group = group.add(
-                Text::new("")
-                    .add(svg::node::Text::new(format_date(&self.due_date)))
+                Text::new(format_date(&self.due_date))
                     .set("x", payment_detail_left)
                     .set("y", y_pos)
                     .style(Self::FONT),
@@ -1175,8 +1208,7 @@ impl QRBill {
         y_pos += mm(94.0);
         for alternative_process in &self.alternative_processes {
             group = group.add(
-                Text::new("")
-                    .add(svg::node::Text::new(alternative_process))
+                Text::new(alternative_process)
                     .set("x", payment_left)
                     .set("y", y_pos)
                     .style(Self::PROCESS_FONT),
@@ -1195,8 +1227,7 @@ impl QRBill {
         line_space: f64,
     ) -> Group {
         let group = group.add(
-            Text::new("")
-                .add(svg::node::Text::new(text.as_ref()))
+            Text::new(text.as_ref())
                 .set("x", payment_detail_left)
                 .set("y", *y_pos)
                 .style(Self::HEAD_FONT),
@@ -1225,16 +1256,39 @@ fn format_amount(amount: f64) -> String {
     format!("{:.2}", amount).separate_with_spaces()
 }
 
-// def wrap_infos(infos) {
-//     for text in infos:
-//         while(text) {
-//             yield text[:MAX_CHARS_PAYMENT_LINE]
-//             text = text[MAX_CHARS_PAYMENT_LINE:]
-
 #[cfg(test)]
 mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+    use super::*;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case("Way too long string", 0, Error::Name)]
+    #[case("Way too long string", 1, Error::Street)]
+    #[case("Way too long string", 2, Error::HouseNumber)]
+    #[case("Way too long string", 3, Error::PostalCode)]
+    #[case("Way too long string", 4, Error::City)]
+    fn structured_addr_errs(
+        #[case] new_data: &str,
+        #[case] x: usize,
+        #[case] _erro: Error,
+    ) -> anyhow::Result<()> {
+        let mut data: Vec<String> = vec![
+            "name".into(),
+            "street".into(),
+            "house_number".into(),
+            "postal".into(),
+            "city".into(),
+        ];
+        data[x] = new_data.repeat(5);
+        let address = StructuredAddress::new(
+            data[0].clone(),
+            data[1].clone(),
+            data[2].clone(),
+            data[3].clone(),
+            data[4].clone(),
+            CountryCode::CHE,
+        );
+        assert!(matches!(address.unwrap_err(), _erro));
+        Ok(())
     }
 }
