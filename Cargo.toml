@@ -1,5 +1,5 @@
 [package]
-author = "Noah Hüsser <noah@huesser.dev>"
+authors = ["Noah Hüsser <noah@huesser.dev>"]
 name = "qrbill"
 version = "0.2.4"
 edition = "2021"
