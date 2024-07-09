@@ -1,3 +1,5 @@
+use std::fmt::{Display, Formatter};
+
 #[derive(Debug, Clone)]
 pub struct Iso11649 {
     number: String,
@@ -11,6 +13,8 @@ pub enum Error {
     InvalidFormat,
     #[error("Checksum is invalid.")]
     InvalidChecksum,
+    #[error("Parsing error, this is a bug please report")]
+    ParseIntError(#[from] std::num::ParseIntError),
 }
 
 impl Iso11649 {
@@ -26,7 +30,7 @@ impl Iso11649 {
         let valid = format!("{}{}", &number[4..], &number[..4])
             .chars()
             .map(|v| {
-                i64::from_str_radix(&v.to_string(), 36).expect("This is a bug. Please rport it.")
+                i64::from_str_radix(&v.to_string(), 36).expect("This is a bug. Please report it.")
             })
             .fold(String::new(), |a, b| format!("{}{}", a, b))
             .parse::<u128>()
@@ -43,16 +47,16 @@ impl Iso11649 {
         self.number.clone()
     }
 }
-
-impl std::fmt::Display for Iso11649 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.number
+impl Display for Iso11649 {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let n = self
+            .number
             .chars()
             .collect::<Vec<char>>()
             .chunks(4)
             .map(|c| c.iter().collect::<String>())
             .collect::<Vec<String>>()
-            .join(" ")
-        )
+            .join(" ");
+        write!(f, "{}", n)
     }
 }

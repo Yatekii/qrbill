@@ -1,9 +1,11 @@
 use qrbill::{
-    Address, CombinedAddress, CountryCode, NaiveDate, QRBill, QRBillOptions, Reference,
-    StructuredAddress,
+    billing_infos::BillingInfos, Address, CombinedAddress, CountryCode, NaiveDate, QRBill,
+    QRBillOptions, Reference, StructuredAddress,
 };
 
 fn main() -> anyhow::Result<()> {
+    let bi: BillingInfos =
+        "Unstructured message to the buyer//S1/11/240711/10/10239978/20/1348 Dépôt/30/109456872/40/4:5;3:10;0:30/31/240710/32/8.1".parse()?;
     let qrbill = QRBill::new(QRBillOptions {
         account: "CH5800791123000889012".parse()?,
         creditor: Address::Structured(StructuredAddress::new(
@@ -24,7 +26,7 @@ fn main() -> anyhow::Result<()> {
             CountryCode::CHE,
         )?)),
         reference: Reference::None,
-        extra_infos: None,
+        extra_infos: Some(bi),
         alternative_processes: vec![],
         language: qrbill::Language::English,
         top_line: true,
