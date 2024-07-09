@@ -283,6 +283,11 @@ impl AddressExt for CombinedAddress {
         ]
     }
 
+    //TODO: The qr_spec require to show the country code if not CH
+    //For invoicing to countries outside Switzerland, including
+    //Lichtenstein, the country code shall be printed on the
+    //payment section.
+    //https://www.six-group.com/dam/download/banking-services/standardization/qr-bill/ig-qr-bill-v2.2-en.pdf#page=19
     fn as_paragraph(&self, max_width: usize) -> Vec<String> {
         [self.name.clone(), self.line1.clone(), self.line2.clone()]
             .iter()
@@ -350,6 +355,11 @@ impl AddressExt for StructuredAddress {
         ]
     }
 
+    //TODO: The qr_spec require to show the country code if not CH
+    //For invoicing to countries outside Switzerland, including
+    //Lichtenstein, the country code shall be printed on the
+    //payment section.
+    //https://www.six-group.com/dam/download/banking-services/standardization/qr-bill/ig-qr-bill-v2.2-en.pdf#page=19
     fn as_paragraph(&self, max_width: usize) -> Vec<String> {
         vec![
             self.name.clone(),
