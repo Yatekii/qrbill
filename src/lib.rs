@@ -1,3 +1,6 @@
+pub mod billing_infos;
+use billing_infos::BillingInfos;
+
 pub mod esr;
 pub mod iso11649;
 
@@ -214,6 +217,8 @@ pub enum Error {
     Scor(#[from] iso11649::Error),
     #[error("An error occurred when generating PDF")]
     Pdf(#[from] svg2pdf::usvg::Error),
+    #[error("An error occured on the (un)structured Banking Infos: {0}")]
+    BillingInfos(#[from] billing_infos::BillingInfoError),
 }
 
 #[derive(Debug)]
@@ -395,8 +400,8 @@ pub struct QRBill {
     due_date: Option<NaiveDate>,
     debtor: Option<Address>,
     reference: Reference,
-    /// Extra information aimed for the bill recipient.
-    extra_infos: Option<String>,
+    /// Extra banking information aimed for the bill recipient.
+    extra_infos: Option<BillingInfos>,
     /// Two additional fields for alternative payment schemes.
     alternative_processes: Vec<String>,
     /// Language of the output.
@@ -416,7 +421,7 @@ pub struct QRBillOptions {
     pub debtor: Option<Address>,
     pub reference: Reference,
     /// Extra information aimed for the bill recipient.
-    pub extra_infos: Option<String>,
+    pub extra_infos: Option<BillingInfos>,
     /// Two additional fields for alternative payment schemes.
     pub alternative_processes: Vec<String>,
     /// Language of the output.
@@ -540,7 +545,7 @@ impl QRBill {
         iban_kind.try_valid_reference(&options.reference, options.account.electronic_str())?;
 
         if let Some(extra_infos) = options.extra_infos.as_ref() {
-            if extra_infos.len() > 120 {
+            if extra_infos.len() > 140 {
                 return Err(Error::ExtraInfos);
             }
         }
@@ -589,8 +594,17 @@ impl QRBill {
                 .unwrap_or_else(|| vec!["".into(); 7]),
         );
         data.extend(self.reference.data_list());
-        data.extend(vec![self.extra_infos.clone().unwrap_or_default()]);
+        data.extend(vec![self
+            .extra_infos
+            .clone()
+            .and_then(|x| x.unstructured())
+            .unwrap_or_default()]);
         data.push("EPD".to_string());
+        data.extend(vec![self
+            .extra_infos
+            .clone()
+            .and_then(|x| x.structured())
+            .unwrap_or_default()]);
         data.extend(self.alternative_processes.clone());
 
         data.join("\r\n")
@@ -1124,22 +1138,8 @@ impl QRBill {
                 line_space,
             );
 
-            let extra_info = if extra_info.contains("##") {
-                let mut extra_info: Vec<_> =
-                    extra_info.split("##").map(|s| s.to_string()).collect();
-                extra_info[1] = "##".to_string() + &extra_info[1];
-                extra_info
-            } else {
-                vec![extra_info.to_string()]
-            };
-
-            for line in extra_info.iter().flat_map(|line| {
-                line.chars()
-                    .collect::<Vec<char>>()
-                    .chunks(MAX_CHARS_PAYMENT_LINE)
-                    .map(|c| c.iter().collect::<String>())
-                    .collect::<Vec<String>>()
-            }) {
+            let extra_info = extra_info.as_paragraph().unwrap_or(vec![]);
+            for line in extra_info {
                 group = group.add(
                     Text::new(line)
                         .set("x", payment_detail_left)
