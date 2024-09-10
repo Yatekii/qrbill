@@ -106,4 +106,32 @@ mod tests {
         assert_eq!(Iso11649::try_new(input), Ok(expected))
     }
 
+    #[rstest]
+    #[case("RF25A")]
+    #[case("RF61AB")]
+    #[case("RF45ABC")]
+    #[case("RF67ABCD")]
+    #[case("RF09ABCDE")]
+    #[case("RF02ABCDEF")]
+    #[case("RF51ABCDEFG")] // i64 starts failing at this point
+    #[case("RF74ABCDEFGH")] // u64 starts failing at this point
+    #[case("RF19ABCDEFGHI")]
+    #[case("RF21ABCDEFGHIJ")]
+    #[case("RF76ABCDEFGHIJA")]
+    #[case("RF20ABCDEFGHIJAB")]
+    #[case("RF19ABCDEFGHIJABC")]
+    #[case("RF86ABCDEFGHIJABCD")]
+    #[case("RF66ABCDEFGHIJABCDE")]
+    #[case("RF76ABCDEFGHIJABCDEF")]
+    #[case("RF79ABCDEFGHIJABCDEFG")] // u128 starts failing at this point
+    #[case("RF61ABCDEFGHIJABCDEFGH")]
+    #[case("RF77ABCDEFGHIJABCDEFGHI")]
+    #[case("RF98ABCDEFGHIJABCDEFGHIJ")]
+    #[case("RF16ABCDEFGHIJABCDEFGHIJA")]
+    fn test_parse_overflow(#[case] input: &str) {
+        println!("{input}");
+        let parsed = crate::iso11649::Iso11649::try_new(input);
+        parsed.unwrap();
+    }
+
 }
