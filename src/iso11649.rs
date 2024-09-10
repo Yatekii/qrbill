@@ -33,7 +33,7 @@ impl Iso11649 {
         let valid = format!("{}{}", &number[4..], &number[..4])
             .chars()
             .map(|v| {
-                i64::from_str_radix(&v.to_string(), 36).expect("This is a bug. Please report it.")
+                u128::from_str_radix(&v.to_string(), 36).expect("This is a bug. Please report it.")
             })
             .fold(String::new(), |a, b| format!("{}{}", a, b))
             .parse::<u128>()
