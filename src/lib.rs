@@ -389,7 +389,7 @@ impl Reference {
     fn data_list(&self) -> Vec<String> {
         match self {
             Reference::Qrr(esr) => vec!["QRR".to_string(), esr.to_raw()],
-            Reference::Scor(scor) => vec!["SCOR".to_string(), scor.to_raw()],
+            Reference::Scor(scor) => vec!["SCOR".to_string(), chunked(&scor.with_checksum())],
             Reference::None => vec!["NON".to_string(), "".to_string()],
         }
     }
@@ -399,7 +399,7 @@ impl std::fmt::Display for Reference {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", match self {
             Reference::Qrr(esr) => esr.to_string(),
-            Reference::Scor(reference) => reference.to_string(),
+            Reference::Scor(reference) => chunked(&reference.with_checksum()),
             Reference::None => String::new(),
         })
     }
@@ -1222,10 +1222,13 @@ fn format_amount(amount: f64) -> String {
 //             yield text[:MAX_CHARS_PAYMENT_LINE]
 //             text = text[MAX_CHARS_PAYMENT_LINE:]
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
+
+pub fn chunked(unchunked: &str) -> String {
+    unchunked
+        .chars()
+        .collect::<Vec<_>>()
+        .chunks(4)
+        .map(|c| c.iter().collect::<String>())
+        .collect::<Vec<String>>()
+        .join(" ")
 }
