@@ -225,7 +225,7 @@ mod tests {
 
         let reference_input = "ABCD 1234 AU";
         let reference = Iso11649::new(reference_input);
-        let reference_coded = chunked(&reference.with_checksum());
+        let reference_coded = reference.with_checksum();
 
         let bill = QRBill::new(QRBillOptions {
             account: iban.parse().expect("Hard-wired test IBAN should parse"),
