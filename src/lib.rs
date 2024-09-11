@@ -389,7 +389,7 @@ impl Reference {
     fn data_list(&self) -> Vec<String> {
         match self {
             Reference::Qrr(esr) => vec!["QRR".to_string(), esr.to_raw()],
-            Reference::Scor(scor) => vec!["SCOR".to_string(), chunked(&scor.with_checksum())],
+            Reference::Scor(scor) => vec!["SCOR".to_string(), scor.with_checksum()],
             Reference::None => vec!["NON".to_string(), "".to_string()],
         }
     }
