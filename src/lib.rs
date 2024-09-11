@@ -618,26 +618,17 @@ impl QRBill {
     fn draw_blank_rectangle(group: Group, x: f64, y: f64, width: f64, height: f64) -> Group {
         // TODO: stroke_info = {'stroke': 'black', 'stroke_width': '0.26mm', 'stroke_linecap': 'square'}
         let mut rectangle_group = Group::new();
-        rectangle_group = Self::draw_line(rectangle_group, x, y, x, y + mm(2.0));
-        rectangle_group = Self::draw_line(rectangle_group, x, y, x + mm(2.0), y);
-        rectangle_group = Self::draw_line(rectangle_group, x, y + height, x, y + height + mm(-2.0));
-        rectangle_group = Self::draw_line(rectangle_group, x, y + height, x + mm(3.0), y + height);
-        rectangle_group = Self::draw_line(rectangle_group, x + width + mm(-3.0), y, x + width, y);
-        rectangle_group = Self::draw_line(rectangle_group, x + width, y, x + width, y + mm(2.0));
-        rectangle_group = Self::draw_line(
-            rectangle_group,
-            x + width + mm(-3.0),
-            y + height,
-            x + width,
-            y + height,
-        );
-        rectangle_group = Self::draw_line(
-            rectangle_group,
-            x + width,
-            y + height,
-            x + width,
-            y + height + mm(-2.0),
-        );
+        macro_rules! corner {
+            ($x:expr, $y:expr, $dx:expr, $dy:expr) => {
+                rectangle_group = Self::draw_line(rectangle_group, $x, $y, $x+$dx, $y    );
+                rectangle_group = Self::draw_line(rectangle_group, $x, $y, $x    , $y+$dy);
+            };
+        }
+        let (w, h, dw, dh) = (width, height, mm(3.0), mm(2.0));
+        corner!(x  , y  ,  dw,  dh); // top left
+        corner!(x+w, y  , -dw,  dh); // top right
+        corner!(x  , y+h,  dw, -dh); // bottom left
+        corner!(x+w, y+h, -dw, -dh); // bottom right
         group.add(rectangle_group)
     }
 
