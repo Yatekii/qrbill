@@ -458,25 +458,25 @@ impl QRBill {
 
     const TITLE_FONT: Style = Style {
         font_size: Some(12.0),
-        font_family: Some("Liberation Sans"),
+        font_family: Some("Arial, Frutiger, Helvetica, Liberation Sans"),
         font_weight: Some("bold"),
     };
 
     const FONT: Style = Style {
         font_size: Some(10.0),
-        font_family: Some("Liberation Sans"),
+        font_family: Some("Arial, Frutiger, Helvetica, Liberation Sans"),
         font_weight: None,
     };
 
     const HEAD_FONT: Style = Style {
         font_size: Some(8.0),
-        font_family: Some("Liberation Sans"),
+        font_family: Some("Arial, Frutiger, Helvetica, Liberation Sans"),
         font_weight: Some("bold"),
     };
 
     const PROCESS_FONT: Style = Style {
         font_size: Some(7.0),
-        font_family: Some("Liberation Sans"),
+        font_family: Some("Arial, Frutiger, Helvetica, Liberation Sans"),
         font_weight: None,
     };
 
