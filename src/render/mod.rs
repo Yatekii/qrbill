@@ -113,8 +113,8 @@ impl Render {
 
     pub fn new(part: Part, language: Language) -> Self {
         let (dims, font) = match part {
-            Part::Receipt => (RECEIPT, Styles::new("Liberation Sans", &RECEIPT)),
-            Part::Payment => (PAYMENT, Styles::new("Liberation Sans", &PAYMENT)),
+            Part::Receipt => (RECEIPT, Styles::new("Arial, Frutiger, Helvetica, Liberation Sans", &RECEIPT)),
+            Part::Payment => (PAYMENT, Styles::new("Arial, Frutiger, Helvetica, Liberation Sans", &PAYMENT)),
         };
         let label = label::Labels::for_language(language);
         Self { part, dims, font, label }
