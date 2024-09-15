@@ -41,7 +41,7 @@
 // TODO replace this with Length(f64), but then the mm/pt constructors become
 // non-const functions and the we cannot make the RECEIPT/PAYMENT consts
 #[derive(Debug, Copy, Clone)]
-pub (crate) enum Length {
+pub enum Length {
     Mm(f64),
     Pt(f64),
 }
@@ -95,7 +95,7 @@ impl std::ops::AddAssign for Length {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub (crate) struct Xy { pub x: Length, pub y: Length }
+pub struct Xy { pub x: Length, pub y: Length }
 
 impl Xy {
     pub (crate) const fn mm(left: f64, top: f64) -> Self {
@@ -103,7 +103,7 @@ impl Xy {
     }
 }
 
-pub (crate) struct Dimensions {
+pub struct Dimensions {
     pub section: Sections,
     pub font: Fonts,
     // Dimensions of blank rectangles
