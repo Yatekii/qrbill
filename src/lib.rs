@@ -1,15 +1,10 @@
-use std::fmt::Write;
-
 use chrono::NaiveDate;
 pub use iban::Iban;
 use iban::IbanLike;
 use isocountry::CountryCode;
 use qrcode::{self, types::QrError, QrCode};
 use svg::{
-    node::{
-        element::{Group, Line, Path, Polygon, Rectangle, Text},
-        Value,
-    },
+    node::element::{Group, Line, Path, Polygon, Rectangle, Text},
     Document,
 };
 use thousands::Separable;
@@ -18,7 +13,7 @@ pub mod esr;
 pub mod iso11649;
 mod dimensions;
 mod label;
-mod render;
+pub mod render;
 
 pub use label::Language;
 
@@ -299,49 +294,13 @@ impl std::fmt::Display for Reference {
     }
 }
 
-#[derive(Debug, Clone)]
-struct Style {
-    font_size_in_pt: Option<f64>,
-    font_family: Option<&'static str>,
-    font_weight: Option<&'static str>,
+trait ClassExt {
+    fn class(self, class: &str) -> Text;
 }
 
-impl From<Style> for Value {
-    fn from(style: Style) -> Self {
-        let mut s = String::new();
-        if let Some(font_size) = style.font_size_in_pt {
-            write!(&mut s, "font-size: {};", font_size).expect("This is a bug. Please report it.");
-        }
-        if let Some(font_family) = style.font_family {
-            write!(&mut s, "font-family: {};", font_family)
-                .expect("This is a bug. Please report it.");
-        }
-        if let Some(font_weight) = style.font_weight {
-            write!(&mut s, "font-weight: {};", font_weight)
-                .expect("This is a bug. Please report it.");
-        }
-
-        s.into()
-    }
-}
-
-trait StyleExt {
-    fn style(self, style: &Style) -> Text;
-}
-
-impl StyleExt for Text {
-    fn style(mut self, style: &Style) -> Text {
-        if let Some(font_size) = style.font_size_in_pt {
-            self = self.set("font-size", format!("{font_size}pt"));
-        }
-        if let Some(font_family) = style.font_family {
-            self = self.set("font-family", font_family);
-        }
-        if let Some(font_weight) = style.font_weight {
-            self = self.set("font-weight", font_weight);
-        }
-
-        self
+impl ClassExt for Text {
+    fn class(self, class: &str) -> Text {
+        self.set("class", class)
     }
 }
 
@@ -462,6 +421,7 @@ impl QRBill {
         let (h_in_mm, h) = if full_page { (  A4_HEIGHT_IN_MM,   A4_HEIGHT) }
         else                            { (BILL_HEIGHT_IN_MM, BILL_HEIGHT) };
         let document = Document::new()
+            .add(svg::node::element::Style::new(crate::dimensions::make_svg_styles()))
             .set("width", format!("{A4_WIDTH_IN_MM}mm"))
             .set("height", format!("{h_in_mm}mm"))
             .set("viewBox", format!("0 0 {A4_WIDTH} {h}"));

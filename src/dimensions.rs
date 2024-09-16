@@ -103,6 +103,8 @@ impl Xy {
     }
 }
 
+/// Information about positions an sizes of elements to be rendered on one part
+/// (receipt or payment) of a QRBill.
 pub struct Dimensions {
     pub section: Sections,
     pub font: Fonts,
@@ -121,12 +123,12 @@ const ACC_E: f64 =  57.0; // mm x-position of RHS of ACCEPTANCE POINT section
 
 pub const RECEIPT: Dimensions = Dimensions {
     section: Sections {
-        title:             Xy::mm(RCT_X,  5.0),
-        information:       Xy::mm(RCT_X, 12.0),
-        amount:            Xy::mm(RCT_X, 68.0),
-        acceptance:   Some(Xy::mm(ACC_E, 82.0)),
-        qr_code:      None,
-        further_info: None,
+        title:            Xy::mm(RCT_X,  5.0),
+        information:      Xy::mm(RCT_X, 12.0),
+        amount:           Xy::mm(RCT_X, 68.0),
+        acceptance:  Some(Xy::mm(ACC_E, 82.0)),
+        qr_code:     None,
+        alt_proc:    None,
     },
 
     // The font sizes for the receipt are 6 pt for the headings (bold) and 8 pt
@@ -138,7 +140,7 @@ pub const RECEIPT: Dimensions = Dimensions {
         value:              font(  8.0,  9.0),
         amount:             font(  8.0, 11.0),
         acceptance_pt: Some(font(  6.0,  8.0)), // bold
-        further_info:  None,
+        alt_proc:      None,
     },
 
     blank_payable: Xy::mm( 52.0, 20.0),
@@ -149,12 +151,12 @@ pub const RECEIPT: Dimensions = Dimensions {
 
 pub const PAYMENT: Dimensions = Dimensions {
     section: Sections {
-        title:             Xy::mm(PAY_X,  5.0),
-        information:       Xy::mm(INF_X,  5.0),
-        amount:            Xy::mm(PAY_X, 68.0),
-        acceptance:   None,
-        qr_code:      Some(Xy::mm(PAY_X, 17.0)),
-        further_info: Some(Xy::mm(PAY_X, 90.0)),
+        title:            Xy::mm(PAY_X,  5.0),
+        information:      Xy::mm(INF_X,  5.0),
+        amount:           Xy::mm(PAY_X, 68.0),
+        acceptance:  None,
+        qr_code:     Some(Xy::mm(PAY_X, 17.0)),
+        alt_proc:    Some(Xy::mm(PAY_X, 90.0)),
     },
 
     // The font size for headings and their associated values on the payment
@@ -178,7 +180,7 @@ pub const PAYMENT: Dimensions = Dimensions {
         value:              font( 10.0, 11.0),
         amount:             font( 10.0, 13.0),
         acceptance_pt: None,
-        further_info:  Some(font(  7.0,  8.0)), // bold & normal
+        alt_proc:      Some(font(  7.0,  8.0)), // bold & normal
     },
 
     blank_payable: Xy::mm( 65.0, 25.0),
@@ -193,7 +195,7 @@ pub struct Sections {
     pub amount:              Xy,
     pub acceptance:   Option<Xy>,
     pub qr_code:      Option<Xy>,
-    pub further_info: Option<Xy>,
+    pub alt_proc:     Option<Xy>,
 }
 
 pub struct Fonts {
@@ -202,7 +204,7 @@ pub struct Fonts {
     pub value:                Font,
     pub amount:               Font,
     pub acceptance_pt: Option<Font>,
-    pub further_info:  Option<Font>,
+    pub alt_proc:      Option<Font>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -224,3 +226,34 @@ pub mod blank_rectangle {
 
 pub const MM_TO_UU: f64 = 3.543307;
 pub const PT_TO_UU: f64 = PT_TO_MM * MM_TO_UU;
+
+pub fn make_svg_styles() -> String {
+    let r = RECEIPT.font;
+    let p = PAYMENT.font;
+
+    let r_titl = r.title                 .size.as_pt();
+    let r_head = r.heading               .size.as_pt();
+    let r_valu = r.value                 .size.as_pt();
+    let r_acpt = r.acceptance_pt.unwrap().size.as_pt();
+
+    let p_titl = p.title                 .size.as_pt();
+    let p_head = p.heading               .size.as_pt();
+    let p_valu = p.value                 .size.as_pt();
+    let p_altp = p.alt_proc     .unwrap().size.as_pt();
+
+    format!("
+    text {{
+         font-family: Arial, Helvetica, Frutiger, \"Liberation Sans\", sans-serif;
+    }}
+    .r-title         {{ font-size: {r_titl:2.0}pt; font-weight: bold; }}
+    .r-heading       {{ font-size: {r_head:2.0}pt; font-weight: bold; }}
+    .r-value         {{ font-size: {r_valu:2.0}pt;                    }}
+    .r-acceptance-pt {{ font-size: {r_acpt:2.0}pt; font-weight: bold; }}
+
+    .p-title         {{ font-size: {p_titl:2.0}pt; font-weight: bold; }}
+    .p-heading       {{ font-size: {p_head:2.0}pt; font-weight: bold; }}
+    .p-value         {{ font-size: {p_valu:2.0}pt;                    }}
+    .p-alt-proc      {{ font-size: {p_altp:2.0}pt; font-weight: bold; }}
+    }}
+")
+}

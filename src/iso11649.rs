@@ -296,7 +296,7 @@ EPD",
     }
 
     //#[rstest] // TODO fix test qr_data_via_in_memory_image
-    fn todo_qr_data_via_in_memory_image(example1: Example) {
+    fn _todo_qr_data_via_in_memory_image(example1: Example) {
         let Example { bill, expected_data } = example1;
         let pixmap = render_svg_data_to_png(&bill.qr_image().unwrap())
             .unwrap();
