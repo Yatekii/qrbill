@@ -41,56 +41,32 @@
 // TODO replace this with Length(f64), but then the mm/pt constructors become
 // non-const functions and the we cannot make the RECEIPT/PAYMENT consts
 #[derive(Debug, Copy, Clone)]
-pub enum Length {
-    Mm(f64),
-    Pt(f64),
+pub struct Length {
+    in_svg_uu: f64,
 }
 
+pub const MM_TO_UU: f64 = 3.543307;
+pub const PT_TO_UU: f64 = PT_TO_MM * MM_TO_UU;
+pub const PT_TO_MM: f64 = 0.3527777778;
+
 impl Length {
-
-    pub (crate) fn as_mm(self) -> f64 {
-        match self {
-            Mm(mm) => mm,
-            Pt(_ ) => todo!(),
-        }
-    }
-
-    pub (crate) fn as_pt(self) -> f64 {
-        match self {
-            Mm(_ ) => todo!(),
-            Pt(pt) => pt,
-        }
-    }
-
-    pub (crate) fn as_uu(self) -> f64 {
-        match self {
-            Mm(mm) => mm * MM_TO_UU,
-            Pt(pt) => pt * PT_TO_UU,
-        }
-    }
-
+    pub fn as_mm(self) -> f64 { self.in_svg_uu / MM_TO_UU }
+    pub fn as_pt(self) -> f64 { self.in_svg_uu / PT_TO_UU }
+    pub fn as_uu(self) -> f64 { self.in_svg_uu            }
+    pub fn mm(mm: f64) -> Self { Self { in_svg_uu: mm * MM_TO_UU } }
+    pub fn pt(pt: f64) -> Self { Self { in_svg_uu: pt * PT_TO_UU } }
+    pub fn uu(uu: f64) -> Self { Self { in_svg_uu: uu            } }
 }
 
 impl From<Length> for svg::node::Value {
-    fn from(value: Length) -> Self {
-        match value {
-            Mm(mm) => format!("{:.1}", mm * MM_TO_UU),
-            Pt(pt) => format!("{:.1}", pt * 666.0)
-        }.into()
+    fn from(Length { in_svg_uu }: Length) -> Self {
+        in_svg_uu.into()
     }
 }
 
-const PT_TO_MM: f64 = 0.3527777778;
-
-// Todo, need to rethink the approach to storing mm and pt
 impl std::ops::AddAssign for Length {
     fn add_assign(&mut self, rhs: Self) {
-        *self = match (&self, rhs) {
-            (Mm(a), Mm(b)) => Mm(*a + b),
-            (Mm(m), Pt(p)) => Mm(*m + p * PT_TO_MM),
-            (Pt(_), Mm(_)) => todo!(),
-            (Pt(a), Pt(b)) => Pt(*a + b),
-        }
+        self.in_svg_uu += rhs.in_svg_uu;
     }
 }
 
@@ -98,8 +74,8 @@ impl std::ops::AddAssign for Length {
 pub struct Xy { pub x: Length, pub y: Length }
 
 impl Xy {
-    pub (crate) const fn mm(left: f64, top: f64) -> Self {
-        Self { x: Mm(left), y: Mm(top) }
+    pub fn mm(left: f64, top: f64) -> Self {
+        Self { x: Length::mm(left), y: Length::mm(top) }
     }
 }
 
@@ -114,14 +90,12 @@ pub struct Dimensions {
     pub max_chars_line: usize,
 }
 
-use Length::*;
-
 const RCT_X: f64 =   5.0; // mm x-position of RECEIPT part sections
 const PAY_X: f64 =  67.0; // mm x-position of PAYMENT part sections except INFORMATION
 const INF_X: f64 = 118.0; // mm x-position of INFORMATION section in PAYMENT part
 const ACC_E: f64 =  57.0; // mm x-position of RHS of ACCEPTANCE POINT section
 
-pub const RECEIPT: Dimensions = Dimensions {
+pub fn receipt() -> Dimensions { Dimensions {
     section: Sections {
         title:            Xy::mm(RCT_X,  5.0),
         information:      Xy::mm(RCT_X, 12.0),
@@ -147,9 +121,9 @@ pub const RECEIPT: Dimensions = Dimensions {
     blank_amount:  Xy::mm( 30.0, 10.0),
 
     max_chars_line: 38,
-};
+}}
 
-pub const PAYMENT: Dimensions = Dimensions {
+pub fn payment() -> Dimensions { Dimensions {
     section: Sections {
         title:            Xy::mm(PAY_X,  5.0),
         information:      Xy::mm(INF_X,  5.0),
@@ -187,7 +161,7 @@ pub const PAYMENT: Dimensions = Dimensions {
     blank_amount:  Xy::mm( 40.0, 15.0),
 
     max_chars_line: 72,
-};
+}}
 
 pub struct Sections {
     pub title:               Xy,
@@ -210,26 +184,23 @@ pub struct Fonts {
 #[derive(Debug, Clone, Copy)]
 pub struct Font { pub (crate) size: Length, pub (crate) line_spacing: Length }
 
-const fn font(size_in_pt: f64, line_spacing_in_pt: f64) -> Font {
+fn font(size_in_pt: f64, line_spacing_in_pt: f64) -> Font {
     Font {
-        size: Pt(size_in_pt),
-        line_spacing: Pt(line_spacing_in_pt),
+        size:         Length::pt(size_in_pt),
+        line_spacing: Length::pt(line_spacing_in_pt),
     }
 }
 
 pub mod blank_rectangle {
     use super::*;
-    pub const LINE_LENGTH: Length = Mm(3.0);
-    pub const LINE_WIDTH:  Length = Pt(0.75);
+    pub fn line_length() -> Length { Length::mm(3.0 ) }
+    pub fn line_width () -> Length { Length::pt(0.75) }
     
 }
 
-pub const MM_TO_UU: f64 = 3.543307;
-pub const PT_TO_UU: f64 = PT_TO_MM * MM_TO_UU;
-
 pub fn make_svg_styles() -> String {
-    let r = RECEIPT.font;
-    let p = PAYMENT.font;
+    let r = receipt().font;
+    let p = payment().font;
 
     let r_titl = r.title                 .size.as_pt();
     let r_head = r.heading               .size.as_pt();

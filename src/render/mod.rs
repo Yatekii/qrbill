@@ -1,7 +1,7 @@
 use chrono::NaiveDate;
 
 use crate::{
-    dimensions::{self as dims, Dimensions, Xy, PAYMENT, RECEIPT},
+    dimensions::{self as dims, Dimensions, Xy, payment, receipt},
     format_amount, label, AddressExt, Group, Language, Line, QRBill, Reference, ClassExt, Text, Error,
 };
 
@@ -41,8 +41,8 @@ impl Render {
 
     pub fn new(part: Part, language: Language) -> Self {
         let (dims, classes) = match part {
-            Part::Receipt => (RECEIPT, PartStyleClasses::receipt()),
-            Part::Payment => (PAYMENT, PartStyleClasses::payment()),
+            Part::Receipt => (receipt(), PartStyleClasses::receipt()),
+            Part::Payment => (payment(), PartStyleClasses::payment()),
         };
         let label = label::Labels::for_language(language);
         macro_rules! sty { ($a:ident) => {                    Style { class: classes.$a,          text_size: dims.font.$a          }  }; }
@@ -132,7 +132,7 @@ impl Render {
             }
         } else {
             g = g.add(txt(&mut cursor, &sty.heading, label.payable_by_extended));
-            /*TODO why do we need this hack? */cursor.y += dims::Length::Mm(1.5);
+            /*TODO why do we need this hack? */cursor.y += dims::Length::mm(1.5);
             let (Xy { x, y }, Xy { x: w, y: h }) = (cursor, dims.blank_payable);
             g = g.add(self.blank_rect(x.as_uu(), y.as_uu(), w.as_uu(), h.as_uu()));
         }
@@ -148,14 +148,14 @@ impl Render {
         let mut cursor_cur = dims.section.amount;
         let mut cursor_amt = dims.section.amount;
 
-        use crate::dimensions::Length::Mm;
+        use crate::dimensions::Length;
 
         // TODO where is x-pos of AMOUNT stated in the standard?
         cursor_amt.x += match (*part, bill.amount) {
-            (Part::Receipt, None   ) => Mm(12.0),
-            (Part::Receipt, Some(_)) => Mm(23.0),
-            (Part::Payment, None   ) => Mm(15.0),
-            (Part::Payment, Some(_)) => Mm(23.0),
+            (Part::Receipt, None   ) => Length::mm(12.0),
+            (Part::Receipt, Some(_)) => Length::mm(23.0),
+            (Part::Payment, None   ) => Length::mm(15.0),
+            (Part::Payment, Some(_)) => Length::mm(23.0),
         };
         g = g.add(txt(&mut cursor_cur, &sty.heading, label.currency))
              .add(txt(&mut cursor_amt, &sty.heading, label.amount))
@@ -165,12 +165,12 @@ impl Render {
         } else {
             if *part == Part::Receipt {
                 cursor_amt = dims.section.amount;
-                cursor_amt.x += Mm(22.0); // TODO where is x-pos of AMOUNT stated in the standard?
+                cursor_amt.x += Length::mm(22.0); // TODO where is x-pos of AMOUNT stated in the standard?
             } else {
-                cursor_amt.x += Mm(-4.0); // TODO position this at the end of the QR width?
+                cursor_amt.x += Length::mm(-4.0); // TODO position this at the end of the QR width?
             }
             let Xy { x: w, y: h } = self.dims.blank_amount;
-            /*TODO eliminate need for this hack */cursor_amt.y += dims::Length::Mm(2.0);
+            /*TODO eliminate need for this hack */cursor_amt.y += dims::Length::mm(2.0);
             let Xy { x, y } = cursor_amt;
             g = g.add(self.blank_rect(x.as_uu(), y.as_uu(), w.as_uu(), h.as_uu()));
         }
@@ -211,7 +211,7 @@ impl Render {
                 group = self.draw_line(group, $x, $y, $x    , $y+$dy);
             };
         }
-        let dw = dims::blank_rectangle::LINE_LENGTH.as_uu();
+        let dw = dims::blank_rectangle::line_length().as_uu();
         let dh = dw;
         corner!(x  , y  ,  dw,  dh); // top left
         corner!(x+w, y  , -dw,  dh); // top right
@@ -229,7 +229,7 @@ impl Render {
                 .set("x2", x2)
                 .set("y2", y2)
                 .set("stroke", "black")
-                .set("stroke-width", format!("{}pt", dims::blank_rectangle::LINE_WIDTH.as_pt()))
+                .set("stroke-width", format!("{}pt", dims::blank_rectangle::line_width().as_pt()))
                 .set("stroke-linecap", "square"),
         )
     }
