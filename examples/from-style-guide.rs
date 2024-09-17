@@ -4,14 +4,19 @@
 ///
 /// This document is included in this repository at `qr-standard-docs/style-guide-qr-bill-en.pdf`
 
-use std::collections::HashMap;
+use std::{collections::HashMap, fs, path::Path};
 use qrbill::{esr, iso11649::Iso11649, Address, Language, QRBill, QRBillOptions, Reference, StructuredAddress};
 
 
 fn main() -> anyhow::Result<()> {
     for (name, bill) in make_all()? {
-        bill.write_svg_to_file(name.to_owned() + ".svg", false)?;
-        bill.write_pdf_to_file(name.to_owned() + ".pdf", false)?;
+        let out_dir = "example-output".to_owned();
+        std::fs::create_dir_all(&out_dir)?;
+        let base = Path::new(&out_dir).join(name);
+
+        bill.write_svg_to_file(base.with_extension("svg"), false)?;
+        bill.write_pdf_to_file(base.with_extension("pdf"), false)?;
+        fs::write(base.with_extension("qr-data"), bill.qr_data())?;
     }
     Ok(())
 }
@@ -161,7 +166,7 @@ mod tests {
     ) {
         let bill = sample_bills.get(id).unwrap();
         let encoded_in_bill = bill.qr_data();
-        let path = "examples/images-from-style-guide/".to_owned() + id + ".png.qr-contents";
+        let path = "examples/images-from-style-guide/".to_owned() + id + ".png.qr-data";
         let encoded_in_sample = std::fs::read_to_string(path).unwrap();
         compare_sample_with_ours(&encoded_in_sample, &encoded_in_bill, false);
     }

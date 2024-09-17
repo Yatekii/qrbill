@@ -1,3 +1,4 @@
+use std::{fs, path::Path};
 use qrbill::{iso11649::Iso11649, Address, Currency, Language, QRBill, QRBillOptions, Reference, StructuredAddress};
 
 fn main() -> anyhow::Result<()> {
@@ -24,8 +25,14 @@ fn main() -> anyhow::Result<()> {
         payment_line: true,
     })?;
 
-    qrbill.write_svg_to_file("test0.svg", false)?;
-    qrbill.write_pdf_to_file("test0.pdf", false)?;
+    let out_dir = "example-output".to_owned();
+    std::fs::create_dir_all(&out_dir)?;
+    let base = Path::new(&out_dir).join("test1");
+
+    qrbill.write_svg_to_file(base.with_extension("svg"), false)?;
+    qrbill.write_pdf_to_file(base.with_extension("pdf"), false)?;
+    fs::write(base.with_extension("qr-data"), qrbill.qr_data())?;
+
 
     let qrbill = QRBill::new(QRBillOptions {
         account: "CH8200788000C33011582".parse()?,
@@ -59,8 +66,10 @@ fn main() -> anyhow::Result<()> {
         payment_line: true,
     })?;
 
-    qrbill.write_svg_to_file("test.svg", false)?;
-    qrbill.write_pdf_to_file("test.pdf", false)?;
+    let base = Path::new(&out_dir).join("test2");
+    qrbill.write_svg_to_file(base.with_extension("svg"), false)?;
+    qrbill.write_pdf_to_file(base.with_extension("pdf"), false)?;
+    fs::write(base.with_extension("qr-data"), qrbill.qr_data())?;
 
     Ok(())
 }
