@@ -1,5 +1,5 @@
 [package]
-author = "Noah Hüsser <noah@huesser.dev>"
+authors = ["Noah Hüsser <noah@huesser.dev>"]
 name = "qrbill"
 version = "0.2.3"
 edition = "2021"
@@ -31,5 +31,5 @@ bardecoder = "0.5.0"
 image = "0.24.0"
 pretty_assertions = "1.4.0"
 resvg = "0.42.0"
-rstest = "0.21.0"
+rstest = "0.25.0"
 temp_testdir = "0.2.3"

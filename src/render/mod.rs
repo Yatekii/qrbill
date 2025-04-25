@@ -110,7 +110,7 @@ impl Render {
         if let (Part::Payment, Some(info)) = (self.part, &bill.extra_infos) {
             g = g.add(txt(&mut cursor, &sty.heading, label.additional_information));
             // TODO cheating on additional information content: see Ustrd and StrdBkginf in spec
-            for line in info.lines() {
+            for line in info.as_paragraph().unwrap_or_default() {
                 g = g.add(txt(&mut cursor, &sty.value, line));
             }
             skip_one_line!();

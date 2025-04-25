@@ -1,0 +1,8 @@
+unstable_features = true
+max_width = 120
+attr_fn_like_width = 80
+chain_width = 70
+enum_discrim_align_threshold = 20
+struct_field_align_threshold = 20
+fn_single_line = true
+imports_layout = "Mixed"

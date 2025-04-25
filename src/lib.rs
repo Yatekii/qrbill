@@ -14,6 +14,11 @@ pub mod iso11649;
 mod dimensions;
 mod label;
 pub mod render;
+mod utils;
+use utils::IbanKind;
+
+pub mod billing_infos;
+pub use billing_infos::BillingInfos;
 
 pub use label::Language;
 
@@ -52,8 +57,12 @@ pub enum Error {
     City,
     #[error("The IBAN needs to start with CH or LI.")]
     InvalidIban,
-    #[error("Extra infos can be no more than 140 characters.")]
-    ExtraInfos,
+    #[error("IBAN provided ({0:?}) is not SCOR compatible (see IID)")]
+    InvalidIid(String),
+    #[error("IBAN provided ({0:?}) is not ESR compatible (see QRIID)")]
+    InvalidQriid(String),
+    #[error("{0:?}")]
+    BillingInfos(#[from] billing_infos::BillingInfoError),
     #[error(
         "At maximum two alternative procedure with a maximum of 100 characters can be specified."
     )]
@@ -67,21 +76,21 @@ pub enum Error {
 }
 
 pub enum Address {
-    Cobined(CombinedAddress),
+    Combined(CombinedAddress),
     Structured(StructuredAddress),
 }
 
 impl AddressExt for Address {
     fn data_list(&self) -> Vec<String> {
         match self {
-            Address::Cobined(a) => a.data_list(),
+            Address::Combined(a) => a.data_list(),
             Address::Structured(a) => a.data_list(),
         }
     }
 
     fn as_paragraph(&self, max_width: usize) -> Vec<String> {
         match self {
-            Address::Cobined(a) => a.as_paragraph(max_width),
+            Address::Combined(a) => a.as_paragraph(max_width),
             Address::Structured(a) => a.as_paragraph(max_width),
         }
     }
@@ -236,7 +245,7 @@ pub struct QRBill {
     debtor: Option<Address>,
     reference: Reference,
     /// Extra information aimed for the bill recipient.
-    pub extra_infos: Option<String>,
+    pub extra_infos: Option<BillingInfos>,
     /// Two additional fields for alternative payment schemes.
     alternative_processes: Vec<String>,
     /// Language of the output.
@@ -256,7 +265,7 @@ pub struct QRBillOptions {
     pub debtor: Option<Address>,
     pub reference: Reference,
     /// Extra information aimed for the bill recipient.
-    pub extra_infos: Option<String>,
+    pub extra_infos: Option<BillingInfos>,
     /// Two additional fields for alternative payment schemes.
     pub alternative_processes: Vec<String>,
     /// Language of the output.
@@ -314,20 +323,10 @@ impl QRBill {
         if !IBAN_ALLOWED_COUNTRIES.contains(&options.account.country_code()) {
             return Err(Error::InvalidIban);
         }
-        let iban_iid = options.account.electronic_str()[4..9]
-            .parse()
-            .expect("This is a bug. Please report it.");
-        let _account_is_qriban = (QR_IID_START..=QR_IID_END).contains(&iban_iid);
-
-        // TODO validate ESR reference number
 
         // TODO: validate QR IBAN / QRID matches.
-
-        if let Some(extra_infos) = options.extra_infos.as_ref() {
-            if extra_infos.len() > 120 {
-                return Err(Error::ExtraInfos);
-            }
-        }
+        let iban_kind = options.account.kind()?;
+        iban_kind.try_matching_reference(&options.reference, options.account.electronic_str())?;
 
         if options.alternative_processes.len() > 2 {
             return Err(Error::AlternativeProcedure);
@@ -373,8 +372,19 @@ impl QRBill {
                 .unwrap_or_else(|| vec!["".into(); 7]),
         );
         data.extend(self.reference.data_list());
-        data.extend(vec![self.extra_infos.clone().unwrap_or_default()]);
+        // As show in page 32 and 33 of the standardization of the unstructured and
+        // structured data, unstructured should go before EPD and structured should go after
+        data.extend(vec![self
+            .extra_infos
+            .clone()
+            .and_then(|x| x.unstructured())
+            .unwrap_or_default()]);
         data.push("EPD".to_string());
+        data.extend(vec![self
+            .extra_infos
+            .clone()
+            .and_then(|x| x.structured())
+            .unwrap_or_default()]);
         data.extend(self.alternative_processes.clone());
 
         data.join("\n")
@@ -478,13 +488,6 @@ fn mm(value: f64) -> f64 {
 fn format_amount(amount: f64) -> String {
     format!("{:.2}", amount).separate_with_spaces()
 }
-
-// def wrap_infos(infos) {
-//     for text in infos:
-//         while(text) {
-//             yield text[:MAX_CHARS_PAYMENT_LINE]
-//             text = text[MAX_CHARS_PAYMENT_LINE:]
-
 
 pub fn chunked(unchunked: &str) -> String {
     unchunked

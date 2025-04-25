@@ -18,7 +18,7 @@ fn main() -> anyhow::Result<()> {
         //due_date: None,
         debtor: None,
         reference: Reference::None,
-        extra_infos: Some("This that and the other".into()), //None,
+        extra_infos: Some("This that and the other".parse()?), //None,
         alternative_processes: vec![],
         language: qrbill::Language::English,
         top_line: true,
@@ -56,7 +56,7 @@ fn main() -> anyhow::Result<()> {
             country: isocountry::CountryCode::FRA,
         })),
         reference: Reference::Scor(Iso11649::new("Abcd 1234 áü")),
-        extra_infos: Some("Extra infos".into()),
+        extra_infos: Some("Extra infos".parse()?),
         alternative_processes: vec![
             "Alternative process 1".into(),
             "Another alternative process".into()

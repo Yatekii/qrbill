@@ -29,19 +29,16 @@ fn make_all() -> anyhow::Result<HashMap<&'static str, QRBill>> {
     let ref_none = Reference::None;
 
     let extra_1 = Some(
-"Auftrag vom 15.06.2020
-//S1/10/10201409/11/170309/20/14000000/
-30/106017086");
+        "Auftrag vom 15.06.2020
+//S1/10/10201409/11/170309/20/14000000/30/106017086",
+    );
 
-    let extra_2 = Some(
-"//S1/10/10201409/11/170309/20/14000000/
-30/106017086/31/210122");
+    let extra_2 = Some("//S1/10/10201409/11/170309/20/14000000/30/106017086/31/210122");
 
     let extra_3 = Some(
-"Auftrag vom 15.06.2020
-//S1/10/10201409/11/170309/20/14000000/
-30/106017086/31/210122
-");
+        "Auftrag vom 15.06.2020
+//S1/10/10201409/11/170309/20/14000000/30/106017086/31/210122",
+    );
 
     let map = HashMap::from_iter(
         [
@@ -121,7 +118,7 @@ fn make(
         due_date: None,
         debtor,
         reference: reference.clone(),
-        extra_infos: extra_infos.map(Into::into),
+        extra_infos: extra_infos.map(|s| s.parse().unwrap()),
         alternative_processes: vec![],
         language: Language::English,
         top_line: true,

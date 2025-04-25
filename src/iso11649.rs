@@ -74,10 +74,12 @@ impl std::ops::Rem<u8> for DigitsBase10 {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use super::*;
-    use crate::chunked;
-    use rstest::*;
+    use crate::{chunked, BillingInfos};
     use pretty_assertions::assert_eq;
+    use rstest::*;
 
     #[rstest]
     #[case("a", "RF25 A")]
@@ -207,7 +209,9 @@ mod tests {
         let debtor_postal_code = 3456;
         let debtor_city = "Rochemouillé-sur-Lac";
         let debtor_country = isocountry::CountryCode::CHE;
-        let extra_infos = "Extra infos";
+        let extra_infos = BillingInfos::from_str("Extra infos").unwrap();
+        let unstructured_info = extra_infos.unstructured().unwrap_or_default();
+        let structured_info = extra_infos.structured().unwrap_or_default();
         // TODO due_date seems to have no effect on the data encoded in the QR code
         let due_date = chrono::NaiveDate::from_ymd_opt(2024, 6, 30)
             .expect("Hard-wired test date should parse");
@@ -235,7 +239,7 @@ mod tests {
             due_date: Some(due_date),
             debtor,
             reference: Reference::Scor(reference),
-            extra_infos: Some(extra_infos.into()),
+            extra_infos: Some(extra_infos),
             alternative_processes: vec![],// TODO reinstate when alt-procs implemented vec![alternative1.into(), alternative2.into()],
             language: Language::French,
             top_line: true,
@@ -278,8 +282,9 @@ S
 CH
 SCOR
 {reference_coded}
-{extra_infos}
-EPD",
+{unstructured_info}
+EPD
+{structured_info}",
 // TODO reinstate when alt-procs implemented
 // {alternative1}
 // {alternative2}
