@@ -23,13 +23,8 @@ impl IbanType {
             },
         }
     }
-}
-pub trait IbanKind {
-    fn kind<'a>(&self) -> Result<&'a IbanType, Error>;
-}
-impl IbanKind for Iban {
-    fn kind<'a>(&self) -> Result<&'a IbanType, Error> {
-        let iid: usize = self.electronic_str()[4..9]
+    pub fn try_with_iban<'a>(iban: &Iban) -> Result<&'a Self, Error> {
+        let iid: usize = iban.electronic_str()[4..9]
             .parse()
             .expect("This is a bug, please report it");
         if (QR_IID_START..=QR_IID_END).contains(&iid) {

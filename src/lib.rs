@@ -1,3 +1,4 @@
+#![cfg_attr(rustfmt, rustfmt_skip)]
 use chrono::NaiveDate;
 pub use iban::Iban;
 use iban::IbanLike;
@@ -15,7 +16,7 @@ mod dimensions;
 mod label;
 pub mod render;
 mod utils;
-use utils::IbanKind;
+use utils::IbanType;
 
 pub mod billing_infos;
 pub use billing_infos::BillingInfos;
@@ -325,8 +326,7 @@ impl QRBill {
         }
 
         // TODO: validate QR IBAN / QRID matches.
-        let iban_kind = options.account.kind()?;
-        iban_kind.try_matching_reference(&options.reference, options.account.electronic_str())?;
+        IbanType::try_with_iban(&options.account)?.try_matching_reference(&options.reference, options.account.electronic_str())?;
 
         if options.alternative_processes.len() > 2 {
             return Err(Error::AlternativeProcedure);

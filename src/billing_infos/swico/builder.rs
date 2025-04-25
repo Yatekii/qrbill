@@ -1,3 +1,5 @@
+use crate::billing_infos::BKG_INF_CHAR_LIMIT;
+
 use super::{
     Arc, BillingInfos, Emitter, NaiveDate, StructuredSet, Swico, SwicoComponent, SwicoError, TotalLenght, Version,
     DATE_FMT,
@@ -21,7 +23,7 @@ impl S1Builder {
     /// Voucher/Invoice/Bill number
     ///
     /// The voucher date is the same as the date of the invoice
-    /// Tt is used as the reference date for the terms and conditions.
+    /// It is used as the reference date for the terms and conditions.
     /// Together with the field /40/0:n, a maturity date of the invoice can be calculated
     /// (payable within n days after the voucher date).
     pub fn add_invoice_ref(&mut self, text: impl AsRef<str>) -> &mut Self {
@@ -143,18 +145,18 @@ impl S1Builder {
             .insert(SwicoComponent::Conditions, Arc::from(text.as_ref()));
         self
     }
-    /// Return de Swico Builder [`S1Builder`] as [`Result<BillingInfos, SwicoError>`]
+    /// Return the Swico Builder [`S1Builder`] as [`Result<BillingInfos, SwicoError>`]
     ///
     /// # Behavior
     ///
     /// Validate each fields of the structured data set
-    /// Max authorized length of characters combinging structured and unstructured: [`140`]
+    /// Max authorized length of characters combining structured and unstructured: [`140`]
     pub fn build(&mut self) -> Result<BillingInfos, SwicoError> {
         if self.structured_set.len() > 1 {
             self.structured_set.insert(SwicoComponent::Prefix, Arc::from("S1"));
         }
         let max_len = self.structured_set.tot_len();
-        if max_len > 140 {
+        if max_len > BKG_INF_CHAR_LIMIT {
             return Err(SwicoError::TooLong(max_len));
         }
         let vers = Version::S1(self.structured_set.clone()).validate_syntax()?;

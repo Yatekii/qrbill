@@ -21,7 +21,7 @@ pub enum Error {
 }
 
 impl Esr {
-    #[deprecated(note = "use `try_without_checksum() or try_with_checksum()` instead")]
+    #[deprecated(note = "use `try_new_without_checksum() or try_new_with_checksum()` instead")]
     pub fn try_new(number: String) -> Result<Self, Error> {
         let number = number.replace(' ', "").trim_start_matches('0').to_string();
         if number.len() > ESR_MAX_LENGTH {
@@ -39,7 +39,7 @@ impl Esr {
     ///
     /// The checksum should already be present at the end of the string!
     /// If your reference doesn't have the checksum calculated use [`Esr::try_without_checksum`] instead.
-    pub fn try_with_checksum(number: String) -> Result<Self, Error> {
+    pub fn try_new_with_checksum(number: String) -> Result<Self, Error> {
         let number = number.replace(' ', "").trim_start_matches('0').to_string();
         if number.len() > ESR_MAX_LENGTH || number.len() < 5 {
             return Err(Error::InvalidLength);
@@ -52,7 +52,7 @@ impl Esr {
     /// Instantiate a new [`Esr`] struct and calculate the checksum digit
     ///
     /// The checksum should not be provided at the end of the string!
-    pub fn try_without_checksum(value: String) -> Result<Self, Error> {
+    pub fn try_new_without_checksum(value: String) -> Result<Self, Error> {
         let value = value.replace(' ', "").trim_start_matches('0').to_string();
         if value.len() > ESR_MAX_NO_CHECKSUM || value.len() < 5 {
             return Err(Error::InvalidLength);
@@ -129,7 +129,7 @@ mod test {
     #[case("2100000000000458423122404546", Error::InvalidLength)]
     fn try_new_errors(#[case] sample: &str, #[case] erro: Error) -> () {
         let s = String::from(sample);
-        let esr = Esr::try_with_checksum(s);
+        let esr = Esr::try_new_with_checksum(s);
         assert_eq!(esr.unwrap_err(), erro)
     }
     #[rstest]
@@ -140,10 +140,10 @@ mod test {
     fn try_from_ok(#[case] sample: &str, #[case] with_checksum: bool) -> () {
         let sample = String::from(sample);
         if with_checksum {
-            let esr = Esr::try_with_checksum(sample);
+            let esr = Esr::try_new_with_checksum(sample);
             assert!(esr.is_ok())
         } else {
-            let esr = Esr::try_without_checksum(sample);
+            let esr = Esr::try_new_without_checksum(sample);
             assert!(esr.is_ok())
         }
     }

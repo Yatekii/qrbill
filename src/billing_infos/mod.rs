@@ -5,6 +5,8 @@ use utils::{make_paragraph_from_raw, Fold, RawData, RawDataKind};
 
 use swico::Swico;
 
+const BKG_INF_CHAR_LIMIT: usize = 140;
+
 type BillingInfoParagrah = Vec<String>;
 
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -68,12 +70,12 @@ impl BillingInfos {
     /// ```
     pub fn add_unstructured(self, text: impl AsRef<str>) -> Result<Self, BillingInfoError> {
         let i = text.as_ref().chars().count();
-        if i > 140 {
+        if i > BKG_INF_CHAR_LIMIT {
             return Err(BillingInfoError::Swico(swico::SwicoError::TooLong(i)));
         }
         if let Some(c) = &self.structured() {
             let i = c.chars().count() + i;
-            if i > 140 {
+            if i > BKG_INF_CHAR_LIMIT {
                 return Err(BillingInfoError::Swico(swico::SwicoError::TooLong(i)));
             }
         }
@@ -91,7 +93,7 @@ impl BillingInfos {
     ///
     /// Split the unstructured_infos and the structured_infos into multiple lines
     /// unstructured_infos always goes at the top (1st line)
-    /// structured_infos goes under and is splited based on length
+    /// structured_infos goes under and is split based on length
     pub fn as_paragraph(&self) -> Option<BillingInfoParagrah> {
         let mut r = RawData::new();
         if let Some(emitter) = self.emitter.as_ref() {
@@ -147,9 +149,7 @@ impl FromStr for BillingInfos {
     type Err = BillingInfoError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.contains("//S1") {
-            let emitter = Some(Emitter::Swico(
-                Swico::try_from(s).map_err(BillingInfoError::Swico)?,
-            ));
+            let emitter = Some(Emitter::Swico(Swico::try_from(s).map_err(BillingInfoError::Swico)?));
             Ok(Self {
                 emitter,
                 unstructured_field: None,
@@ -199,9 +199,7 @@ mod test {
     #[case("//S1/10/10201409/11/190512/20/1400.000-53/30/106017086/31/180508/32/7.7/40/2:10;0:30")]
     #[case("//S1/10/10104/11/180228/30/395856455/31/180226180227/32/3.7:400.19;7.7:553.39;0:14/40/0:30")]
     #[case("//S1/10/4031202511/11/180107/20/61257233.4/30/105493567/32/8:49.82/33/2.5:14.85/40/0:30")]
-    #[case(
-        r"//S1/10/X.66711\/8824/11/200712/20/MW-2020-04/30/107978798/32/2.5:117.22/40/3:5;1.5:20;1:40;0:60"
-    )]
+    #[case(r"//S1/10/X.66711\/8824/11/200712/20/MW-2020-04/30/107978798/32/2.5:117.22/40/3:5;1.5:20;1:40;0:60")]
     #[case(r"//S1/10/24073428/11/240729/20/145258\/Dépôt/30/112806097/31/240630240731/40/3:10;0:30")]
     fn from_str_valid(#[case] s: &str) -> anyhow::Result<()> {
         let msg = "Message au payeur";
