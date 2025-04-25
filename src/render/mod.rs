@@ -1,8 +1,8 @@
 use chrono::NaiveDate;
 
 use crate::{
-    dimensions::{self as dims, payment, receipt, Dimensions, Xy},
-    format_amount, label, AddressExt, ClassExt, Error, Group, Language, Line, QRBill, Reference, Text,
+    dimensions::{self as dims, Dimensions, Xy, payment, receipt},
+    format_amount, label, AddressExt, Group, Language, Line, QRBill, Reference, ClassExt, Text, Error,
 };
 
 pub mod cut;
@@ -10,6 +10,7 @@ pub mod qr;
 
 /// Render one part (receipt or payment) of a QRBill
 pub struct Render {
+
     /// The part (receipt or payment) being rendered
     part: Part,
 
@@ -24,6 +25,7 @@ pub struct Render {
 }
 
 impl Render {
+
     pub fn bill(bill: &QRBill, which: What) -> Result<Group, Error> {
         let mut group = Group::new();
         let parts = match which {
@@ -43,22 +45,8 @@ impl Render {
             Part::Payment => (payment(), PartStyleClasses::payment()),
         };
         let label = label::Labels::for_language(language);
-        macro_rules! sty {
-            ($a:ident) => {
-                Style {
-                    class:     classes.$a,
-                    text_size: dims.font.$a,
-                }
-            };
-        }
-        macro_rules! opt {
-            ($a:ident) => {
-                classes.$a.map(|_| Style {
-                    class:     classes.$a.unwrap(),
-                    text_size: dims.font.$a.unwrap(),
-                })
-            };
-        }
+        macro_rules! sty { ($a:ident) => {                    Style { class: classes.$a,          text_size: dims.font.$a          }  }; }
+        macro_rules! opt { ($a:ident) => { classes.$a.map(|_| Style { class: classes.$a.unwrap(), text_size: dims.font.$a.unwrap() } )}; }
         let sty = Styles {
             title:   sty!(title),
             heading: sty!(heading),
@@ -70,18 +58,17 @@ impl Render {
 
     pub fn render_all(&self, bill: &QRBill) -> Result<Group, Error> {
         Ok(Group::new()
-            .add(self.section_title())
-            .add(self.section_qr(bill)?)
-            .add(self.section_information(bill))
-            .add(self.section_amount(bill))
-            .add(self.section_acceptance_point())
-            .add(self.section_alternative_procs(bill)))
+            .add(self.section_title            (    ) )
+            .add(self.section_qr               (bill)?)
+            .add(self.section_information      (bill) )
+            .add(self.section_amount           (bill) )
+            .add(self.section_acceptance_point (    ) )
+            .add(self.section_alternative_procs(bill) )
+        )
     }
 
     fn section_title(&self) -> Text {
-        let Self {
-            dims, label, part, sty, ..
-        } = self;
+        let Self { dims, label, part, sty, .. } = self;
         let text = match part {
             Part::Receipt => label.receipt,
             Part::Payment => label.payment_part,
@@ -102,18 +89,12 @@ impl Render {
 
         let mut g = Group::new();
         let mut cursor = dims.section.information;
-        macro_rules! skip_one_line {
-            () => {
-                g = g.add(txt(&mut cursor, &sty.value, ""))
-            };
-        }
+        macro_rules! skip_one_line { () => (g = g.add(txt(&mut cursor, &sty.value, ""))); }
 
         // ----- Account / Payable to ------------------------------------------
-        g = g.add(txt(&mut cursor, &sty.heading, label.payable_to)).add(txt(
-            &mut cursor,
-            &sty.value,
-            format!("{}", bill.account),
-        ));
+        g = g
+            .add(txt(&mut cursor, &sty.heading, label.payable_to))
+            .add(txt(&mut cursor, &sty.value  , format!("{}", bill.account)));
 
         for line in bill.creditor.as_paragraph(dims.max_chars_line) {
             g = g.add(txt(&mut cursor, &sty.value, line));
@@ -121,18 +102,15 @@ impl Render {
         skip_one_line!();
         // ----- Reference -----------------------------------------------------
         if !matches!(bill.reference, Reference::None) {
-            g = g.add(txt(&mut cursor, &sty.heading, label.reference)).add(txt(
-                &mut cursor,
-                &sty.value,
-                format!("{}", bill.reference),
-            ));
+            g = g.add(txt(&mut cursor, &sty.heading,              label.reference))
+                 .add(txt(&mut cursor, &sty.value  , format!("{}", bill.reference)));
             skip_one_line!();
         }
         // ----- Additional Information ----------------------------------------
         if let (Part::Payment, Some(info)) = (self.part, &bill.extra_infos) {
             g = g.add(txt(&mut cursor, &sty.heading, label.additional_information));
             // TODO cheating on additional information content: see Ustrd and StrdBkginf in spec
-            for line in info.as_paragraph().unwrap_or_default() {
+            for line in info.lines() {
                 g = g.add(txt(&mut cursor, &sty.value, line));
             }
             skip_one_line!();
@@ -142,11 +120,8 @@ impl Render {
         // specific kind of additional information that exists only in this
         // crate?
         if let Some(date) = bill.due_date {
-            g = g.add(txt(&mut cursor, &sty.heading, label.payable_by_date)).add(txt(
-                &mut cursor,
-                &sty.value,
-                format_date(date),
-            ));
+            g = g.add(txt(&mut cursor, &sty.heading, label.payable_by_date))
+                 .add(txt(&mut cursor, &sty.value  , format_date(date)));
             skip_one_line!();
         }
         // ----- Debtor --------------------------------------------------------
@@ -157,8 +132,7 @@ impl Render {
             }
         } else {
             g = g.add(txt(&mut cursor, &sty.heading, label.payable_by_extended));
-            /*TODO why do we need this hack? */
-            cursor.y += dims::Length::mm(1.5);
+            /*TODO why do we need this hack? */cursor.y += dims::Length::mm(1.5);
             let (Xy { x, y }, Xy { x: w, y: h }) = (cursor, dims.blank_payable);
             g = g.add(self.blank_rect(x.as_uu(), y.as_uu(), w.as_uu(), h.as_uu()));
         }
@@ -168,9 +142,7 @@ impl Render {
 
     fn section_amount(&self, bill: &QRBill) -> Group {
         let mut g = Group::new();
-        let Self {
-            dims, label, part, sty, ..
-        } = self;
+        let Self { dims, label, part, sty, .. } = self;
 
         // Easier to have two cursors, than to adjust x value of single cursor
         let mut cursor_cur = dims.section.amount;
@@ -178,17 +150,16 @@ impl Render {
 
         use crate::dimensions::Length;
 
-        // TODO: where is x-pos of AMOUNT stated in the standard?
+        // TODO where is x-pos of AMOUNT stated in the standard?
         cursor_amt.x += match (*part, bill.amount) {
-            (Part::Receipt, None) => Length::mm(12.0),
+            (Part::Receipt, None   ) => Length::mm(12.0),
             (Part::Receipt, Some(_)) => Length::mm(23.0),
-            (Part::Payment, None) => Length::mm(15.0),
+            (Part::Payment, None   ) => Length::mm(15.0),
             (Part::Payment, Some(_)) => Length::mm(23.0),
         };
-        g = g
-            .add(txt(&mut cursor_cur, &sty.heading, label.currency))
-            .add(txt(&mut cursor_amt, &sty.heading, label.amount))
-            .add(txt(&mut cursor_cur, &sty.value, format!("{}", bill.currency)));
+        g = g.add(txt(&mut cursor_cur, &sty.heading, label.currency))
+             .add(txt(&mut cursor_amt, &sty.heading, label.amount))
+             .add(txt(&mut cursor_cur, &sty.value, format!("{}", bill.currency)));
         if let Some(amount) = bill.amount {
             g = g.add(txt(&mut cursor_amt, &sty.value, format_amount(amount)));
         } else {
@@ -199,8 +170,7 @@ impl Render {
                 cursor_amt.x += Length::mm(-4.0); // TODO position this at the end of the QR width?
             }
             let Xy { x: w, y: h } = self.dims.blank_amount;
-            /*TODO eliminate need for this hack */
-            cursor_amt.y += dims::Length::mm(2.0);
+            /*TODO eliminate need for this hack */cursor_amt.y += dims::Length::mm(2.0);
             let Xy { x, y } = cursor_amt;
             g = g.add(self.blank_rect(x.as_uu(), y.as_uu(), w.as_uu(), h.as_uu()));
         }
@@ -209,22 +179,19 @@ impl Render {
 
     fn section_acceptance_point(&self) -> Group {
         let g = Group::new();
-        if self.part != Part::Receipt {
-            return g;
-        }
+        if self.part != Part::Receipt { return g; }
         let Self { dims, label, sty, .. } = self;
         let mut cursor = dims.section.acceptance.unwrap();
-        g.add(txt(&mut cursor, &sty.accept.unwrap(), label.acceptance_point).set("text-anchor", "end"))
+        g.add(txt(&mut cursor, &sty.accept.unwrap(), label.acceptance_point)
+              .set("text-anchor", "end")
+        )
     }
 
     #[allow(unused)]
-    /*TODO:*/
-    fn section_alternative_procs(&self, bill: &QRBill) -> Group {
+    /*TODO*/fn section_alternative_procs(&self, bill: &QRBill) -> Group {
         let g = Group::new();
-        if self.part != Part::Payment {
-            return g;
-        }
-        if !bill.alternative_processes.is_empty() {
+        if self.part != Part::Payment { return g }
+        if ! bill.alternative_processes.is_empty() {
             let Self { label, .. } = self;
             let mut cursor = self.dims.section.alt_proc.unwrap();
             panic!("Alternative processes not implemented yet.");
@@ -232,7 +199,7 @@ impl Render {
             //     .add(txt(&mut cursor, &plain, "TODO"))
             //.add(txt(&mut cursor, &plain, "stuff"))
         } else {
-            g
+        g
         }
     }
 
@@ -240,16 +207,16 @@ impl Render {
         let mut group = Group::new();
         macro_rules! corner {
             ($x:expr, $y:expr, $dx:expr, $dy:expr) => {
-                group = self.draw_line(group, $x, $y, $x + $dx, $y);
-                group = self.draw_line(group, $x, $y, $x, $y + $dy);
+                group = self.draw_line(group, $x, $y, $x+$dx, $y    );
+                group = self.draw_line(group, $x, $y, $x    , $y+$dy);
             };
         }
         let dw = dims::blank_rectangle::line_length().as_uu();
         let dh = dw;
-        corner!(x, y, dw, dh); // top left
-        corner!(x + w, y, -dw, dh); // top right
-        corner!(x, y + h, dw, -dh); // bottom left
-        corner!(x + w, y + h, -dw, -dh); // bottom right
+        corner!(x  , y  ,  dw,  dh); // top left
+        corner!(x+w, y  , -dw,  dh); // top right
+        corner!(x  , y+h,  dw, -dh); // bottom left
+        corner!(x+w, y+h, -dw, -dh); // bottom right
         group
     }
 
@@ -262,10 +229,7 @@ impl Render {
                 .set("x2", x2)
                 .set("y2", y2)
                 .set("stroke", "black")
-                .set(
-                    "stroke-width",
-                    format!("{}pt", dims::blank_rectangle::line_width().as_pt()),
-                )
+                .set("stroke-width", format!("{}pt", dims::blank_rectangle::line_width().as_pt()))
                 .set("stroke-linecap", "square"),
         )
     }
@@ -274,67 +238,58 @@ impl Render {
 /// The CSS class names representing the styles of the elements in one part
 /// (receipt or payment) being rendered
 struct PartStyleClasses {
-    title:         &'static str,
-    heading:       &'static str,
-    value:         &'static str,
+    title:                &'static str,
+    heading:              &'static str,
+    value:                &'static str,
     acceptance_pt: Option<&'static str>,
     alt_proc_bold: Option<&'static str>,
     alt_proc:      Option<&'static str>,
 }
 
 impl PartStyleClasses {
+
     /// Construct the styles for the receipt part of the bill
-    fn receipt() -> Self {
-        Self {
-            title:         "r-title",
-            heading:       "r-heading",
-            value:         "r-value",
-            acceptance_pt: Some("r-acceptance-pt"),
-            alt_proc:      None,
-            alt_proc_bold: None,
-        }
-    }
+    fn receipt() -> Self { Self {
+        title:              "r-title",
+        heading:            "r-heading",
+        value:              "r-value",
+        acceptance_pt: Some("r-acceptance-pt"),
+        alt_proc:      None,
+        alt_proc_bold: None,
+    }}
 
     /// Construct the styles for the payment part of the bill
-    fn payment() -> Self {
-        Self {
-            title:         "p-title",
-            heading:       "p-heading",
-            value:         "p-value",
-            acceptance_pt: None,
-            alt_proc:      None, // TODO implement alternative processes
-            alt_proc_bold: None, // TODO implement alternative processes
-        }
-    }
+    fn payment() -> Self { Self {
+        title:              "p-title",
+        heading:            "p-heading",
+        value:              "p-value",
+        acceptance_pt: None,
+        alt_proc:      None, // TODO implement alternative processes
+        alt_proc_bold: None, // TODO implement alternative processes
+    }}
+
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Part {
-    Receipt,
-    Payment,
-}
+pub enum Part { Receipt, Payment }
 
 #[derive(Debug, Clone, Copy)]
 struct Style {
-    class:     &'static str,
+    class: &'static str,
     text_size: dims::Font,
 }
 
 /// Styles for rendering text in one part (receipt or payment) of QRBill
 struct Styles {
-    title:   Style,
-    heading: Style,
-    value:   Style,
+    title:          Style,
+    heading:        Style,
+    value:          Style,
     accept:  Option<Style>,
     // TODO alternatie processes
 }
 
 /// Which parts of the QRBill should be rendered
-pub enum What {
-    OnlyReceipt,
-    OnlyPayment,
-    ReceiptAndPayment,
-}
+pub enum What { OnlyReceipt, OnlyPayment, ReceiptAndPayment  }
 
 /// Render some `text` at the position indicated by `cursor`, with the given
 /// `style`. Advance the cursor downwards by `style`'s line spacing *before*
@@ -350,4 +305,6 @@ fn txt(cursor: &mut Xy, style: &Style, text: impl Into<String>) -> Text {
 }
 
 /// Format the due date according to spec.
-fn format_date(date: NaiveDate) -> String { date.format("%d.%m.%Y").to_string() }
+fn format_date(date: NaiveDate) -> String {
+    date.format("%d.%m.%Y").to_string()
+}
