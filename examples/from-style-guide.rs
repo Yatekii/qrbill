@@ -166,7 +166,7 @@ mod tests {
     ) {
         let bill = sample_bills.get(id).unwrap();
         let encoded_in_bill = bill.qr_data();
-        let path = "examples/images-from-style-guide/".to_owned() + id + ".png.qr-data";
+        let path = "examples/images-from-style-guide/".to_owned() + id + ".qr-data";
         let encoded_in_sample = std::fs::read_to_string(path).unwrap();
         compare_sample_with_ours(&encoded_in_sample, &encoded_in_bill, false);
     }
