@@ -1,6 +1,13 @@
 use crate::billing_infos::swico::{StructuredSet, SwicoComponent, Version};
 use std::{collections::BTreeMap, sync::Arc};
 
+#[derive(Debug, thiserror::Error)]
+pub enum SyntaxParserError {
+    #[error("Invalid Swico beacon/group, found : {0:?}")]
+    InvalidBeacons(String),
+    #[error("Could not find index during parsing, this is as bug")]
+    IndexError,
+}
 type Err = SyntaxParserError;
 
 pub fn s1_parser(s: &str) -> Result<Version, Err> {
@@ -50,12 +57,4 @@ fn invalid_beacons(s: &str) -> Result<(), Err> {
         }
     }
     Ok(())
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum SyntaxParserError {
-    #[error("Invalid Swico beacon/group, found : {0:?}")]
-    InvalidBeacons(String),
-    #[error("Could not find index during parsing, this is as bug")]
-    IndexError,
 }

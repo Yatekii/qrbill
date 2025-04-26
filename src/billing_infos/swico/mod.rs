@@ -10,12 +10,21 @@ mod parser;
 use parser::s1_parser;
 mod builder;
 use builder::S1Builder;
-mod erro;
-pub use erro::SwicoError;
 mod syntax;
 use syntax::Version;
 
 const DATE_FMT: &str = "%y%m%d";
+
+#[derive(Debug, thiserror::Error)]
+pub enum SwicoError {
+    #[error("Maximum 140 characters authorized for BillingInfos, found: {0}")]
+    TooLong(usize),
+    #[error("Could not parse Swico string: {0:?}")]
+    FromSyntaxParser(#[from] parser::SyntaxParserError),
+    #[error("Could not validate Swico syntax {0:?}")]
+    FromSyntaxValidator(#[from] syntax::SyntaxValidatorError),
+}
+type Err = SwicoError;
 
 type StructuredSet = BTreeMap<SwicoComponent, Arc<str>>;
 impl TotalLenght for StructuredSet {
@@ -30,8 +39,12 @@ pub struct Swico {
     version: Option<Version>,
 }
 impl Swico {
-    pub fn new() -> Self { Self::default() }
-    pub fn s1_builder(self) -> S1Builder { S1Builder::new() }
+    pub fn new() -> Self {
+        Self::default()
+    }
+    pub fn s1_builder(self) -> S1Builder {
+        S1Builder::new()
+    }
     // Future-proofing for the version 2 on the SwicoSyntax
     // pub fn s2_builder(self) -> S2Builder {
     //     unimplemented!()
@@ -47,7 +60,7 @@ impl RawDataKind for Swico {
     }
 }
 impl TryFrom<&str> for Swico {
-    type Error = SwicoError;
+    type Error = Err;
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         let version = Some(s1_parser(value)?.validate_syntax()?);
         Ok(Self { version })
