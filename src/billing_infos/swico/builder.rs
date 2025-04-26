@@ -32,19 +32,6 @@ impl S1Builder {
         self
     }
     /// Voucher/Invoice/Bill date
-    /// Accepted date format: "YYMMDD"
-    ///
-    /// # Caution:
-    ///
-    /// This can silently fail
-    /// Both "240101 (2024 January 1st)" and "010124 (2001 January 24th)" are valid dates
-    /// If you're unsure, use [`doc_date_naive()`] and pass a [`NaiveDate`] type
-    pub fn add_doc_date(&mut self, text: impl AsRef<str>) -> &mut Self {
-        self.structured_set
-            .insert(SwicoComponent::DocDate, Arc::from(text.as_ref()));
-        self
-    }
-    /// Voucher/Invoice/Bill date
     pub fn add_doc_date_naive(&mut self, date: NaiveDate) -> &mut Self {
         let text = format!("{}", date.format(DATE_FMT));
         self.structured_set
@@ -71,21 +58,6 @@ impl S1Builder {
     pub fn add_vat_num(&mut self, text: impl AsRef<str>) -> &mut Self {
         self.structured_set
             .insert(SwicoComponent::VatNum, Arc::from(text.as_ref()));
-        self
-    }
-    /// VAT Date on which the service was provided
-    ///
-    /// Accepted date format: "YYMMDD" or "YYMMDDYYMMDD"
-    /// Can be a single date or a range between to dates
-    ///
-    /// # Caution:
-    ///
-    /// This can silently fail
-    /// Both "240101 (2024 January 1st)" and "010124 (2001 January 24th)" are valid dates
-    /// If you're unsure, use [`vat_date_naive()`] and pass a [`NaiveDate`] type
-    pub fn add_vat_date(&mut self, text: impl AsRef<str>) -> &mut Self {
-        self.structured_set
-            .insert(SwicoComponent::VatDate, Arc::from(text.as_ref()));
         self
     }
     /// VAT Date on which the service was provided
