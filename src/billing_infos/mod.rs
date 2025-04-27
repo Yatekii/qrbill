@@ -47,8 +47,8 @@ impl BillingInfos {
     /// let bi = BillingInfos::new().add_unstructured(msg)?;
     /// assert_eq!(bi.unstructured().unwrap(), msg);
     /// assert!(bi.structured().is_none());
-    /// let other_msg = "Some invoice message";
     ///
+    /// let other_msg = "Some invoice message";
     /// let bi = BillingInfos::swico();
     /// let mut bi = bi.s1_builder();
     /// let bi = bi.add_unstructured(other_msg).build();

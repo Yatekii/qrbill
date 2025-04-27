@@ -2,7 +2,7 @@ use crate::billing_infos::{BillingInfoParagrah, DataType};
 use std::collections::HashMap;
 
 pub type RawData = HashMap<DataType, Vec<String>>;
-impl TotalLenght for RawData {
+impl TotalLength for RawData {
     fn tot_len(&self) -> usize {
         self.iter()
             .filter(|c| !matches!(c.0, DataType::Unstructured))
@@ -20,7 +20,7 @@ impl Fold for RawData {
 pub trait Fold {
     fn fold_from(&self, d: &DataType) -> Option<String>;
 }
-pub trait TotalLenght {
+pub trait TotalLength {
     fn tot_len(&self) -> usize;
 }
 pub trait RawDataKind {

@@ -1,7 +1,7 @@
 use crate::billing_infos::BKG_INF_CHAR_LIMIT;
 
 use super::{
-    Arc, BillingInfos, Emitter, NaiveDate, StructuredSet, Swico, SwicoComponent, SwicoError, TotalLenght, Version,
+    Arc, BillingInfos, Emitter, NaiveDate, StructuredSet, Swico, SwicoComponent, SwicoError, TotalLength, Version,
     DATE_FMT,
 };
 #[derive(Debug, Default, Clone)]

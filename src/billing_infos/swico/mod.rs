@@ -2,7 +2,7 @@
 //! GERMAN: https://www.swiss-qr-invoice.org/downloads/qr-bill-s1-syntax-de.pdf
 //!
 
-use crate::billing_infos::{utils::TotalLenght, BillingInfos, Emitter, RawData, RawDataKind};
+use crate::billing_infos::{utils::TotalLength, BillingInfos, Emitter, RawData, RawDataKind};
 use crate::NaiveDate;
 use std::{collections::BTreeMap, fmt::Display, sync::Arc};
 
@@ -27,7 +27,7 @@ pub enum SwicoError {
 type Err = SwicoError;
 
 type StructuredSet = BTreeMap<SwicoComponent, Arc<str>>;
-impl TotalLenght for StructuredSet {
+impl TotalLength for StructuredSet {
     fn tot_len(&self) -> usize {
         self.iter()
             .map(|(rc, l)| l.chars().count() + rc.to_string().chars().count())

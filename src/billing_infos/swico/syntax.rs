@@ -121,8 +121,8 @@ impl RawDataKind for Version {
 
 fn is_date_ok(d: impl AsRef<str>) -> Result<(), Err> {
     let d = d.as_ref();
-    let lenght = d.chars().count();
-    match lenght {
+    let length = d.chars().count();
+    match length {
         6 => {
             let _ = NaiveDate::parse_from_str(d, DATE_FMT).map_err(Err::FromNaiveDateParse)?;
         }
